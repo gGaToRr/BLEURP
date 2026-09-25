@@ -2,6 +2,11 @@
 # Never push the LLM rules file
 rules.txt
 
+# Build artifacts
+build/
+*.o
+bleurp
+
 # Scan outputs / captures (generated at runtime)
 *.csv
 *.json
