@@ -84,6 +84,34 @@ root, grant it to the built binary only:
 sudo setcap cap_net_raw,cap_net_admin+eip ./bleurp
 ```
 
+## Raspberry Pi & portability
+
+BLEURP targets Linux and is written to run unchanged on a Raspberry Pi.
+
+- **Endianness**: every multi-byte HCI field is encoded/decoded with explicit
+  little-endian helpers (`wr_le16` / `rd_le16`), so the code does not rely on
+  the host byte order. It is correct on both x86-64 and ARM.
+- **No x86-only code**: standard C11 + POSIX sockets only; builds with the
+  Raspberry Pi OS `gcc`.
+- **Legacy vs extended matters here**: the Pi 3B's built-in controller is BT
+  4.x (legacy only), while the Pi 4 / 400 / Zero 2 W / 5 are BT 5.0
+  (extended). The capability check (`hci_info`) plus the mode `switch` in
+  `hci_scan_start` pick the right command set automatically.
+
+```
+   controller (hci_info)          scan start (hci_scan)
+   -------------------            ---------------------
+   BT 4.x  ── legacy ─────────►   0x200b / 0x200c
+   BT 5.x  ── extended ───────►   0x2041 / 0x2042
+```
+
+Build on the Pi exactly as elsewhere:
+
+```sh
+make && make test
+sudo setcap cap_net_raw,cap_net_admin+eip ./bleurp
+```
+
 ## Legal note
 
 Only scan devices you own or are explicitly authorized to test.
