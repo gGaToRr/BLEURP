@@ -11,6 +11,7 @@
 #include "mgmt.h"
 
 #include <errno.h>
+#include <string.h>
 
 // A parameterless command is a 6-byte little-endian header.
 static void test_build_no_params(void) {
@@ -110,6 +111,97 @@ static void test_parse_header_bad(void) {
     CHECK(errno == EINVAL);
 }
 
+// --- Read Controller Info parsing ---
+
+// Little-endian writers used to build fixtures.
+static void put16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8); }
+static void put32(uint8_t *p, uint32_t v) {
+    p[0] = (uint8_t)v; p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16); p[3] = (uint8_t)(v >> 24);
+}
+
+// Build a Read Controller Info "Command Complete" event. Returns its length.
+static size_t make_ctrl_info(uint8_t *b, uint8_t status,
+                             uint32_t supported, uint32_t current,
+                             const char *name) {
+    size_t o = 0;
+    put16(&b[o], MGMT_EV_CMD_COMPLETE); o += 2;   // event code
+    put16(&b[o], 0x0000); o += 2;                 // index 0
+    put16(&b[o], (uint16_t)(3 + MGMT_CONTROLLER_INFO_PARAM_LEN)); o += 2;
+    put16(&b[o], MGMT_OP_READ_CONTROLLER_INFO); o += 2; // cmd opcode
+    b[o++] = status;                              // status
+    const uint8_t addr[6] = {0x82, 0x76, 0xc9, 0x56, 0x9e, 0x84};
+    memcpy(&b[o], addr, 6); o += 6;               // address
+    b[o++] = 0x0c;                                // bluetooth version = 12
+    put16(&b[o], 0x000f); o += 2;                 // manufacturer
+    put32(&b[o], supported); o += 4;              // supported settings
+    put32(&b[o], current); o += 4;                // current settings
+    b[o++] = 0; b[o++] = 0; b[o++] = 0;           // class of device
+    memset(&b[o], 0, 249);
+    strncpy((char *)&b[o], name, 248); o += 249;  // complete name
+    memset(&b[o], 0, 11); o += 11;                // short name
+    return o;
+}
+
+// A valid reply decodes address, version, manufacturer, settings and name.
+static void test_ctrl_info_ok(void) {
+    uint8_t buf[320];
+    uint32_t supported = MGMT_SETTING_LE | MGMT_SETTING_BREDR |
+                         MGMT_SETTING_POWERED | MGMT_SETTING_ADVERTISING;
+    uint32_t current = MGMT_SETTING_LE | MGMT_SETTING_POWERED;
+    size_t n = make_ctrl_info(buf, 0x00, supported, current, "BLEURP-Test");
+
+    struct mgmt_controller_info info;
+    int r = mgmt_parse_controller_info(buf, n, &info);
+    CHECK(r == 0);
+    CHECK(info.bluetooth_version == 12);
+    CHECK(info.manufacturer == 0x000f);
+    const uint8_t want_addr[6] = {0x82, 0x76, 0xc9, 0x56, 0x9e, 0x84};
+    CHECK(memcmp(info.address, want_addr, 6) == 0);
+    CHECK(mgmt_has_setting(info.supported_settings, MGMT_SETTING_LE) == true);
+    CHECK(mgmt_has_setting(info.current_settings, MGMT_SETTING_POWERED) == true);
+    CHECK(mgmt_has_setting(info.current_settings, MGMT_SETTING_ADVERTISING) == false);
+    CHECK(strcmp(info.name, "BLEURP-Test") == 0);
+    CHECK(info.short_name[0] == '\0');
+}
+
+// A non-zero status is reported as EIO.
+static void test_ctrl_info_status_fail(void) {
+    uint8_t buf[320];
+    size_t n = make_ctrl_info(buf, 0x01, 0, 0, "x");
+    struct mgmt_controller_info info;
+    errno = 0;
+    CHECK(mgmt_parse_controller_info(buf, n, &info) == -1);
+    CHECK(errno == EIO);
+}
+
+// A Command Complete for a different opcode is rejected with EBADMSG.
+static void test_ctrl_info_wrong_opcode(void) {
+    uint8_t buf[320];
+    size_t n = make_ctrl_info(buf, 0x00, MGMT_SETTING_LE, MGMT_SETTING_LE, "x");
+    put16(&buf[6], MGMT_OP_SET_POWERED); // tamper the command opcode
+    struct mgmt_controller_info info;
+    errno = 0;
+    CHECK(mgmt_parse_controller_info(buf, n, &info) == -1);
+    CHECK(errno == EBADMSG);
+}
+
+// A truncated buffer and NULL arguments are rejected.
+static void test_ctrl_info_bad(void) {
+    uint8_t buf[320];
+    size_t n = make_ctrl_info(buf, 0x00, MGMT_SETTING_LE, MGMT_SETTING_LE, "x");
+    struct mgmt_controller_info info;
+    errno = 0;
+    CHECK(mgmt_parse_controller_info(buf, n - 1, &info) == -1);
+    CHECK(errno == EBADMSG);
+    errno = 0;
+    CHECK(mgmt_parse_controller_info(NULL, n, &info) == -1);
+    CHECK(errno == EINVAL);
+    errno = 0;
+    CHECK(mgmt_parse_controller_info(buf, n, NULL) == -1);
+    CHECK(errno == EINVAL);
+}
+
 // Entry point: run every test case and report the aggregate result.
 int main(void) {
     printf("test_mgmt\n");
@@ -121,5 +213,9 @@ int main(void) {
     test_parse_header_ok();
     test_parse_header_index_none();
     test_parse_header_bad();
+    test_ctrl_info_ok();
+    test_ctrl_info_status_fail();
+    test_ctrl_info_wrong_opcode();
+    test_ctrl_info_bad();
     return TEST_REPORT();
 }
