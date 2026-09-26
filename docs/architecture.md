@@ -25,7 +25,14 @@ built and tested in isolation (TDD) before it is wired into the tool.
     ui.c         wifite-style live table (colour, bars, sort) [DONE, tested]
     ui.h
     main.c       CLI + mgmt discovery loop -> ad_parse -> UI  [DONE]
-    (next) export CSV/JSON (#9), full CLI (#7), packaging (#10)
+
+  Phase 2 (contact/connection):
+    att.c        ATT PDU build/parse (GATT language)          [DONE, tested]
+    att.h
+    (next) l2cap.c connect ATT socket (#28), gatt.c discovery (#29),
+           read/write (#30), bleurp enum (#31)
+
+    Phase 1 leftovers: export CSV/JSON (#9), full CLI (#7), packaging (#10)
   tests/
     test.h            tiny assertion framework
     test_hci_cmd.c    unit tests for hci_cmd               [DONE]
