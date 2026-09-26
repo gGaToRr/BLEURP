@@ -39,11 +39,12 @@ static void test_row_named(void) {
     e.has_name = true;
     strcpy(e.name, "MyWatch");
 
-    char buf[128];
+    char buf[192];
     int n = ui_format_row(buf, sizeof buf, 1, &e);
     CHECK(n > 0);
     CHECK(strstr(buf, "66:55:44:33:22:11") != NULL); // displayed MSB-first
     CHECK(strstr(buf, "MyWatch") != NULL);
+    CHECK(strstr(buf, "[+++++]") != NULL);            // strong signal, + bars
 }
 
 // A nameless device falls back to "(unknown)".

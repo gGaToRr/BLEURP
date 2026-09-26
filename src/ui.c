@@ -1,8 +1,8 @@
 // ========================================
 //  nom du fichier: ui.c
 //  description courte: Implementation of the terminal UI. Maps RSSI to colour
-//  and bars, formats a device row (address shown MSB-first), and redraws the
-//  whole sorted table in place using ANSI cursor control.
+//  and bars, formats a widely-spaced device row (address shown MSB-first,
+//  signal as [+++..]), and redraws the whole sorted table in place.
 //  dernière modification : 2026-09-26
 //  auteur: GitHub/@gGaToRr
 // ========================================
@@ -45,17 +45,18 @@ int ui_format_row(char *buf, size_t buf_len, int index,
                   const struct dev_entry *e) {
     const uint8_t *a = e->address;
     const char *name = (e->has_name && e->name[0] != '\0') ? e->name : "(unknown)";
-    return snprintf(buf, buf_len,
-                    "%2d  %02X:%02X:%02X:%02X:%02X:%02X  %4d dBm  %-6s  %4u  %s",
-                    index, a[5], a[4], a[3], a[2], a[1], a[0],
-                    e->rssi, addr_type_str(e->addr_type), e->seen, name);
-}
 
-// Draw a small signal bar like [###..].
-static void write_bars(FILE *out, int bars) {
-    fputc('[', out);
-    for (int i = 0; i < 5; i++) fputc(i < bars ? '#' : '.', out);
-    fputc(']', out);
+    // Signal as a fixed-width [+++..] gauge.
+    char bars[6];
+    int b = ui_rssi_bars(e->rssi);
+    for (int i = 0; i < 5; i++) bars[i] = (i < b) ? '+' : '.';
+    bars[5] = '\0';
+
+    return snprintf(buf, buf_len,
+                    "%3d    %02X:%02X:%02X:%02X:%02X:%02X    %4d dBm    [%s]"
+                    "    %-6s    %5u    %s",
+                    index, a[5], a[4], a[3], a[2], a[1], a[0],
+                    e->rssi, bars, addr_type_str(e->addr_type), e->seen, name);
 }
 
 // Redraw the whole table in place. See ui.h for the contract.
@@ -64,28 +65,23 @@ void ui_render(const struct dev_table *t, time_t start, time_t now,
     size_t count = dev_table_count(t);
     long elapsed = (long)(now - start);
 
-    // Home the cursor, then clear each line to end as we go.
-    fprintf(out, "\033[H");
-    fprintf(out, "  BLEURP  \342\200\224  scanning BLE (kernel mgmt, active)   "
-                 "%3lds   %zu device(s)\033[K\n", elapsed, count);
-    fprintf(out, "  --------------------------------------------------"
-                 "-----------------\033[K\n");
-    fprintf(out, "   #  ADDRESS            RSSI       SIGNAL  TYPE    "
-                 "SEEN  NAME\033[K\n");
+    fprintf(out, "\033[H"); // home the cursor
+    fprintf(out, "  BLEURP  \342\200\224  live BLE scan (kernel mgmt, active)"
+                 "     %3lds     %zu device(s)\033[K\n", elapsed, count);
+    fprintf(out, "    #    ADDRESS              RSSI        SIGNAL     TYPE  "
+                 "     SEEN    NAME\033[K\n");
+    fprintf(out, "  ----------------------------------------------------------"
+                 "----------------------\033[K\n");
 
-    char row[160];
+    char row[192];
     for (size_t i = 0; i < count; i++) {
         const struct dev_entry *e = dev_table_at(t, i);
         ui_format_row(row, sizeof row, (int)i + 1, e);
-        // Row text, then a colour-coded signal bar for the band.
-        fprintf(out, "  %s  ", row);
-        fprintf(out, "%s", ui_rssi_color(e->rssi));
-        write_bars(out, ui_rssi_bars(e->rssi));
-        fprintf(out, "%s\033[K\n", UI_RESET);
+        // Colour the whole line by signal band (like wifite colours targets).
+        fprintf(out, "  %s%s%s\033[K\n", ui_rssi_color(e->rssi), row, UI_RESET);
     }
 
-    // Clear anything left below (devices that dropped off a shorter frame).
-    fprintf(out, "\033[J");
+    fprintf(out, "\033[J"); // clear anything left below a shorter frame
     fprintf(out, "\n  Ctrl-C to stop.\033[K\n");
     fflush(out);
 }

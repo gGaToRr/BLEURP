@@ -24,6 +24,10 @@
 #include "mgmt.h"
 #include "ui.h"
 
+// How often to re-arm discovery, to keep reports flowing and refresh the
+// view (wifite keeps a continuous scan going and redraws steadily).
+#define SCAN_REFRESH_SEC 10
+
 // Set by SIGINT so the scan loop can stop cleanly.
 static volatile sig_atomic_t g_stop = 0;
 
@@ -38,16 +42,19 @@ struct scan_ctx {
     struct dev_table *table;
 };
 
-// Merge one discovered device into the table, labelling it via ad_parse.
+// Merge one discovered device into the table. We only trust the real device
+// name (from the advertising data or scan response); we do NOT guess a vendor
+// from the manufacturer company id, which produces misleading labels (e.g.
+// everything showing as "Apple"). No name -> shown as unknown.
 static void on_device(const struct mgmt_device *d, void *user) {
     struct scan_ctx *c = user;
     struct ad_info info;
-    const char *label = NULL;
-    if (ad_parse(d->eir, d->eir_len, &info) == 0) {
-        label = ad_best_label(&info);
+    const char *name = "";
+    if (ad_parse(d->eir, d->eir_len, &info) == 0 && info.has_name) {
+        name = info.name;
     }
     dev_table_upsert(c->table, d->address, d->addr_type, d->rssi,
-                     label ? label : "", time(NULL));
+                     name, time(NULL));
 }
 
 // Print usage.
@@ -142,11 +149,13 @@ int main(int argc, char **argv) {
 
     signal(SIGINT, on_sigint);
     time_t start = time(NULL);
+    time_t last_refresh = start;
     printf("\033[2J"); // clear once before the live view
 
     struct pollfd pfd = { .fd = fd, .events = POLLIN, .revents = 0 };
     while (!g_stop) {
-        if (duration > 0 && (time(NULL) - start) >= duration) {
+        time_t now = time(NULL);
+        if (duration > 0 && (now - start) >= duration) {
             break;
         }
         int pr = poll(&pfd, 1, 250);
@@ -154,8 +163,20 @@ int main(int argc, char **argv) {
             ssize_t m = read(fd, buf, sizeof buf);
             if (m > 0) { (void)mgmt_dispatch_event(buf, (size_t)m, on_device, &ctx); }
         }
+
+        // Periodic re-scan: stop then start discovery to re-arm the kernel
+        // scan so reports keep coming and the view stays fresh.
+        now = time(NULL);
+        if (now - last_refresh >= SCAN_REFRESH_SEC) {
+            n = mgmt_build_stop_discovery(cmd, sizeof cmd, (uint16_t)index, MGMT_ADDR_LE);
+            (void)send_pkt(fd, cmd, n);
+            n = mgmt_build_start_discovery(cmd, sizeof cmd, (uint16_t)index, MGMT_ADDR_LE);
+            (void)send_pkt(fd, cmd, n);
+            last_refresh = now;
+        }
+
         dev_table_sort_by_rssi(&table);
-        ui_render(&table, start, time(NULL), stdout);
+        ui_render(&table, start, now, stdout);
     }
 
     // Stop discovery and draw a final frame.
