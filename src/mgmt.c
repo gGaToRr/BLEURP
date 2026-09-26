@@ -87,6 +87,87 @@ bool mgmt_has_setting(uint32_t settings, uint32_t flag) {
     return (settings & flag) != 0;
 }
 
+// Build a Start Discovery command. See mgmt.h for the contract.
+ssize_t mgmt_build_start_discovery(uint8_t *buf, size_t buf_len,
+                                   uint16_t index, uint8_t addr_type_mask) {
+    uint8_t p[1] = { addr_type_mask };
+    return mgmt_build_command(buf, buf_len, MGMT_OP_START_DISCOVERY,
+                              index, p, sizeof p);
+}
+
+// Build a Stop Discovery command. See mgmt.h for the contract.
+ssize_t mgmt_build_stop_discovery(uint8_t *buf, size_t buf_len,
+                                  uint16_t index, uint8_t addr_type_mask) {
+    uint8_t p[1] = { addr_type_mask };
+    return mgmt_build_command(buf, buf_len, MGMT_OP_STOP_DISCOVERY,
+                              index, p, sizeof p);
+}
+
+// Parse a Device Found event. See mgmt.h for the contract.
+int mgmt_parse_device_found(const uint8_t *evt, size_t len,
+                            struct mgmt_device *out) {
+    if (evt == NULL || out == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct mgmt_hdr h;
+    if (mgmt_parse_header(evt, len, &h) < 0) {
+        return -1; // errno already set
+    }
+    if (h.opcode != MGMT_EV_DEVICE_FOUND) {
+        errno = EBADMSG;
+        return -1;
+    }
+    if (h.len < MGMT_DEVICE_FOUND_MIN_PARAMS ||
+        len < MGMT_HDR_SIZE + MGMT_DEVICE_FOUND_MIN_PARAMS) {
+        errno = EBADMSG;
+        return -1;
+    }
+
+    const uint8_t *p = evt + MGMT_HDR_SIZE;
+    uint16_t eir_len = rd_le16(p + 12);
+
+    // The declared EIR length must fit inside both the event and the buffer.
+    if ((size_t)MGMT_DEVICE_FOUND_MIN_PARAMS + eir_len > h.len ||
+        MGMT_HDR_SIZE + (size_t)MGMT_DEVICE_FOUND_MIN_PARAMS + eir_len > len) {
+        errno = EBADMSG;
+        return -1;
+    }
+
+    memcpy(out->address, p, 6);
+    out->addr_type = p[6];
+    out->rssi = (int8_t)p[7];
+    out->flags = rd_le32(p + 8);
+    out->eir_len = eir_len;
+    out->eir = (eir_len > 0) ? (p + MGMT_DEVICE_FOUND_MIN_PARAMS) : NULL;
+    return 0;
+}
+
+// Dispatch a device from one mgmt event. See mgmt.h for the contract.
+int mgmt_dispatch_event(const uint8_t *evt, size_t len,
+                        mgmt_device_cb cb, void *user) {
+    if (evt == NULL || cb == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct mgmt_hdr h;
+    if (mgmt_parse_header(evt, len, &h) < 0) {
+        return -1; // errno already set
+    }
+    if (h.opcode != MGMT_EV_DEVICE_FOUND) {
+        return 0; // not a device event: ignore
+    }
+
+    struct mgmt_device dev;
+    if (mgmt_parse_device_found(evt, len, &dev) < 0) {
+        return -1;
+    }
+    cb(&dev, user);
+    return 1;
+}
+
 // Parse a Read Controller Information reply. See mgmt.h for the contract.
 int mgmt_parse_controller_info(const uint8_t *evt, size_t len,
                                struct mgmt_controller_info *out) {

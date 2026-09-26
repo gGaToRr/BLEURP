@@ -77,8 +77,13 @@ kernel headers.
 
 ## Permissions
 
-Raw HCI access needs the `CAP_NET_RAW` capability. Rather than running as
-root, grant it to the built binary only:
+Through the kernel mgmt interface, **reading** controller information works
+unprivileged (for a user in the `bluetooth` group), but **starting a
+discovery** needs `CAP_NET_ADMIN` — without it the kernel replies with a
+Command Status of `0x14` (Permission Denied). Raw HCI access additionally
+needs `CAP_NET_RAW`.
+
+Rather than running as root, grant the capabilities to the built binary only:
 
 ```sh
 sudo setcap cap_net_raw,cap_net_admin+eip ./bleurp

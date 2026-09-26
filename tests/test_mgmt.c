@@ -202,6 +202,118 @@ static void test_ctrl_info_bad(void) {
     CHECK(errno == EINVAL);
 }
 
+// --- Discovery commands and Device Found parsing ---
+
+// Start/Stop Discovery build the right opcode with the LE address bitmask.
+static void test_build_discovery(void) {
+    uint8_t buf[16];
+    ssize_t n = mgmt_build_start_discovery(buf, sizeof buf, 0, MGMT_ADDR_LE);
+    const uint8_t start_want[] = {0x23, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06};
+    CHECK(n == (ssize_t)sizeof start_want);
+    for (size_t i = 0; i < sizeof start_want; i++) CHECK(buf[i] == start_want[i]);
+
+    n = mgmt_build_stop_discovery(buf, sizeof buf, 0, MGMT_ADDR_LE);
+    const uint8_t stop_want[] = {0x24, 0x00, 0x00, 0x00, 0x01, 0x00, 0x06};
+    CHECK(n == (ssize_t)sizeof stop_want);
+    for (size_t i = 0; i < sizeof stop_want; i++) CHECK(buf[i] == stop_want[i]);
+}
+
+// Build a Device Found event. Returns its length.
+static size_t make_device_found(uint8_t *b, const uint8_t addr[6],
+                                uint8_t addr_type, int8_t rssi, uint32_t flags,
+                                const uint8_t *eir, uint16_t eir_len) {
+    size_t o = 0;
+    put16(&b[o], MGMT_EV_DEVICE_FOUND); o += 2;
+    put16(&b[o], 0x0000); o += 2;
+    put16(&b[o], (uint16_t)(MGMT_DEVICE_FOUND_MIN_PARAMS + eir_len)); o += 2;
+    memcpy(&b[o], addr, 6); o += 6;
+    b[o++] = addr_type;
+    b[o++] = (uint8_t)rssi;
+    put32(&b[o], flags); o += 4;
+    put16(&b[o], eir_len); o += 2;
+    if (eir_len) { memcpy(&b[o], eir, eir_len); o += eir_len; }
+    return o;
+}
+
+// A Device Found event decodes address, type, RSSI, flags and EIR.
+static void test_device_found_ok(void) {
+    const uint8_t addr[6] = {0x11, 0x22, 0x33, 0x44, 0x55, 0x66};
+    const uint8_t eir[] = {0x02, 0x01, 0x06, 0x04, 0x09, 'B', 'L', 'E'};
+    uint8_t buf[64];
+    size_t n = make_device_found(buf, addr, MGMT_ADDR_TYPE_LE_RANDOM,
+                                 -55, 0x00000004, eir, sizeof eir);
+    struct mgmt_device d;
+    CHECK(mgmt_parse_device_found(buf, n, &d) == 0);
+    CHECK(memcmp(d.address, addr, 6) == 0);
+    CHECK(d.addr_type == MGMT_ADDR_TYPE_LE_RANDOM);
+    CHECK(d.rssi == -55);
+    CHECK(d.flags == 0x00000004);
+    CHECK(d.eir_len == sizeof eir);
+    CHECK(d.eir != NULL && d.eir[0] == 0x02 && d.eir[4] == 0x09);
+}
+
+// A device with no EIR yields a NULL data pointer and zero length.
+static void test_device_found_empty_eir(void) {
+    const uint8_t addr[6] = {1, 2, 3, 4, 5, 6};
+    uint8_t buf[64];
+    size_t n = make_device_found(buf, addr, MGMT_ADDR_TYPE_LE_PUBLIC,
+                                 -90, 0, NULL, 0);
+    struct mgmt_device d;
+    CHECK(mgmt_parse_device_found(buf, n, &d) == 0);
+    CHECK(d.eir == NULL);
+    CHECK(d.eir_len == 0);
+    CHECK(d.rssi == -90);
+}
+
+// A truncated EIR and a wrong event code are rejected with EBADMSG.
+static void test_device_found_bad(void) {
+    const uint8_t addr[6] = {1, 2, 3, 4, 5, 6};
+    const uint8_t eir[] = {0x02, 0x01, 0x06};
+    uint8_t buf[64];
+    size_t n = make_device_found(buf, addr, MGMT_ADDR_TYPE_LE_PUBLIC,
+                                 -70, 0, eir, sizeof eir);
+    struct mgmt_device d;
+    errno = 0;
+    CHECK(mgmt_parse_device_found(buf, n - 1, &d) == -1);
+    CHECK(errno == EBADMSG);
+    put16(&buf[0], MGMT_EV_CMD_STATUS); // wrong event code
+    errno = 0;
+    CHECK(mgmt_parse_device_found(buf, n, &d) == -1);
+    CHECK(errno == EBADMSG);
+}
+
+// Dispatch capture.
+static struct mgmt_device g_dev;
+static int g_dev_n;
+static void dev_cb(const struct mgmt_device *d, void *user) {
+    (void)user;
+    g_dev = *d;
+    g_dev_n++;
+}
+
+// Dispatch invokes the callback for a Device Found and ignores other events.
+static void test_dispatch(void) {
+    g_dev_n = 0;
+    const uint8_t addr[6] = {0xa, 0xb, 0xc, 0xd, 0xe, 0xf};
+    uint8_t buf[64];
+    size_t n = make_device_found(buf, addr, MGMT_ADDR_TYPE_LE_PUBLIC, -33, 0, NULL, 0);
+    CHECK(mgmt_dispatch_event(buf, n, dev_cb, NULL) == 1);
+    CHECK(g_dev_n == 1);
+    CHECK(g_dev.rssi == -33);
+
+    // A Command Complete event is ignored (returns 0, no callback).
+    const uint8_t ev[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
+    CHECK(mgmt_dispatch_event(ev, sizeof ev, dev_cb, NULL) == 0);
+    CHECK(g_dev_n == 1);
+
+    errno = 0;
+    CHECK(mgmt_dispatch_event(NULL, 6, dev_cb, NULL) == -1);
+    CHECK(errno == EINVAL);
+    errno = 0;
+    CHECK(mgmt_dispatch_event(buf, n, NULL, NULL) == -1);
+    CHECK(errno == EINVAL);
+}
+
 // Entry point: run every test case and report the aggregate result.
 int main(void) {
     printf("test_mgmt\n");
@@ -217,5 +329,10 @@ int main(void) {
     test_ctrl_info_status_fail();
     test_ctrl_info_wrong_opcode();
     test_ctrl_info_bad();
+    test_build_discovery();
+    test_device_found_ok();
+    test_device_found_empty_eir();
+    test_device_found_bad();
+    test_dispatch();
     return TEST_REPORT();
 }
