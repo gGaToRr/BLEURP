@@ -14,8 +14,8 @@ built and tested in isolation (TDD) before it is wired into the tool.
     hci_dev.h
     hci_info.c   read controller version, pick legacy/ext  [DONE, tested]
     hci_info.h
-    hci_scan.c   build/send LE scan commands (legacy+ext)  [cmds DONE, tested]
-    hci_scan.h                                              (event read: #4)
+    hci_scan.c   scan commands, mode switch, event dispatch [DONE, tested]
+    hci_scan.h
     (next) ad_parse.c  decode advertising data (name, RSSI, UUIDs)
     (next) main.c      CLI + live device table
   tests/

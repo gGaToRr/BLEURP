@@ -43,6 +43,11 @@
 
 // HCI event codes (first byte of an HCI event, after the packet type).
 #define HCI_EVT_CMD_COMPLETE 0x0e
+#define HCI_EVT_LE_META      0x3e
+
+// LE Meta sub-event codes carried inside an HCI_EVT_LE_META event.
+#define HCI_SUBEVT_LE_ADV_REPORT     0x02 // legacy advertising report
+#define HCI_SUBEVT_LE_EXT_ADV_REPORT 0x0d // extended advertising report (BT5)
 
 // HCI_Version field values (Bluetooth Assigned Numbers, "Host Controller
 // Interface" version). Extended advertising/scanning arrives with BT 5.0.
