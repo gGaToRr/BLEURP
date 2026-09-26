@@ -31,7 +31,9 @@ built and tested in isolation (TDD) before it is wired into the tool.
     att.h
     l2cap.c      connect an ATT socket to a device (CID 4)    [DONE, tested]
     l2cap.h
-    (next) gatt.c discovery (#29), read/write (#30), bleurp enum (#31)
+    gatt.c       discover services + characteristics          [DONE, tested]
+    gatt.h
+    (next) read/write + descriptors (#30), bleurp enum (#31)
 
     Phase 1 leftovers: export CSV/JSON (#9), full CLI (#7), packaging (#10)
   tests/
