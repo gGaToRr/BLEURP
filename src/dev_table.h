@@ -27,6 +27,7 @@ struct dev_entry {
     uint32_t seen;         // number of reports merged
     time_t   first_seen;
     time_t   last_seen;
+    char     details[128]; // caller-populated verbose summary (optional)
 };
 
 // Growable set of tracked devices.
