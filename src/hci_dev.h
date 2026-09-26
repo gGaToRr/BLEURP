@@ -18,9 +18,11 @@
 #define BLEURP_BTPROTO_HCI  1
 
 // HCI channels: RAW shares the adapter with BlueZ; USER takes exclusive
-// control (the adapter must be down first).
-#define BLEURP_HCI_CHANNEL_RAW  0
-#define BLEURP_HCI_CHANNEL_USER 1
+// control (the adapter must be down first); CONTROL is the kernel BlueZ
+// management (mgmt) interface, which coexists cleanly with bluetoothd.
+#define BLEURP_HCI_CHANNEL_RAW     0
+#define BLEURP_HCI_CHANNEL_USER    1
+#define BLEURP_HCI_CHANNEL_CONTROL 3
 
 // Maximum number of local adapters the kernel exposes (hci0 .. hci15).
 #define BLEURP_HCI_MAX_DEV 16
