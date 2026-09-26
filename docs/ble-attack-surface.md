@@ -97,6 +97,31 @@ Connections + minimum key size.
 - **Verbose advertising** — names, service UUIDs and manufacturer data can leak
   device type, vendor and state (our scanner surfaces these).
 
+### 6.1 How BLEURP classifies address privacy
+
+An LE address is either **public** (a fixed IEEE MAC) or **random**. For a
+random address, the two most-significant bits of the top byte select the
+sub-type — so BLEURP reads a single byte to tell them apart:
+
+```
+ byte[5] (MSB)                       address type      posture
+ ┌───┬───┬──────────────────┐
+ │ 1 │ 1 │  46 random bits   │  →  static random   →  trackable (stable)
+ ├───┼───┼──────────────────┤
+ │ 0 │ 1 │  hash | prand     │  →  RPA             →  private (rotates)
+ ├───┼───┼──────────────────┤
+ │ 0 │ 0 │  46 random bits   │  →  NRPA            →  private (rotates)
+ └───┴───┴──────────────────┘
+   public / BR-EDR type       →  fixed MAC        →  trackable
+```
+
+The scanner labels each device `priv=public|static|rpa|nrpa` and marks a
+**stable** address `[trackable]` in the verbose view. Static random is stable
+only until the device reboots, but that is long enough to correlate sightings,
+so it counts as a tracking finding alongside public addresses. The reserved
+`0b10` pattern never appears on real controllers and is treated conservatively
+as non-trackable. See `src/addr_priv.c`.
+
 ## 7. Tooling map (Linux)
 
 | Job | Tools |
