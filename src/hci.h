@@ -41,4 +41,14 @@
 #define HCI_LE_SCAN_PASSIVE 0x00 // listen only (stealthy, no scan requests)
 #define HCI_LE_SCAN_ACTIVE  0x01 // send SCAN_REQ to solicit SCAN_RSP (more data)
 
+// HCI event codes (first byte of an HCI event, after the packet type).
+#define HCI_EVT_CMD_COMPLETE 0x0e
+
+// HCI_Version field values (Bluetooth Assigned Numbers, "Host Controller
+// Interface" version). Extended advertising/scanning arrives with BT 5.0.
+#define HCI_VER_BT_4_0 6
+#define HCI_VER_BT_4_1 7
+#define HCI_VER_BT_4_2 8
+#define HCI_VER_BT_5_0 9
+
 #endif // BLEURP_HCI_H
