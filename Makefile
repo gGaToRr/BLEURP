@@ -10,8 +10,9 @@
 CC      := gcc
 CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -Isrc -Itests
 BUILD   := build
+BIN     := $(BUILD)/bleurp
 
-# Library sources (excludes any future main.c so tests can link freely).
+# Library sources (excludes main.c so tests can link freely).
 SRC := $(filter-out src/main.c,$(wildcard src/*.c))
 OBJ := $(SRC:src/%.c=$(BUILD)/%.o)
 
@@ -19,10 +20,14 @@ OBJ := $(SRC:src/%.c=$(BUILD)/%.o)
 TEST_SRC := $(wildcard tests/test_*.c)
 TEST_BIN := $(TEST_SRC:tests/%.c=$(BUILD)/%)
 
-.PHONY: all test clean
+.PHONY: all test clean setcap run
 
-# Default: compile the library objects.
-all: $(OBJ)
+# Default: build the bleurp binary.
+all: $(BIN)
+
+# Link the scanner from the library objects plus main.
+$(BIN): $(OBJ) $(BUILD)/main.o | $(BUILD)
+	$(CC) $(CFLAGS) $(OBJ) $(BUILD)/main.o -o $@
 
 # Compile a library object.
 $(BUILD)/%.o: src/%.c | $(BUILD)
@@ -41,6 +46,14 @@ test: $(TEST_BIN)
 
 $(BUILD):
 	@mkdir -p $(BUILD)
+
+# Grant the capabilities needed for kernel mgmt discovery (needs sudo once).
+setcap: $(BIN)
+	sudo setcap cap_net_raw,cap_net_admin+eip $(BIN)
+
+# Run the scanner (needs the capabilities above, or run under sudo).
+run: $(BIN)
+	$(BIN)
 
 clean:
 	rm -rf $(BUILD)

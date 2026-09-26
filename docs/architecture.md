@@ -22,7 +22,10 @@ built and tested in isolation (TDD) before it is wired into the tool.
     ad_parse.h
     dev_table.c  merge/dedup Device Found, best name+rssi     [DONE, tested]
     dev_table.h
-    (next) ui.c + main.c  wifite-style live table (#8) + CLI (#7)
+    ui.c         wifite-style live table (colour, bars, sort) [DONE, tested]
+    ui.h
+    main.c       CLI + mgmt discovery loop -> ad_parse -> UI  [DONE]
+    (next) export CSV/JSON (#9), full CLI (#7), packaging (#10)
   tests/
     test.h            tiny assertion framework
     test_hci_cmd.c    unit tests for hci_cmd               [DONE]
