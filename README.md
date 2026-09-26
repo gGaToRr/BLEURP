@@ -8,14 +8,32 @@ A Bluetooth Low Energy (BLE) scanning tool for authorized security testing on Li
 
 ## Status
 
-Early development. First milestone: a wifite-style live BLE scanner
-(discovery of nearby devices with address, RSSI, name).
+Working wifite-style live BLE scanner: it drives kernel BlueZ management
+(mgmt) discovery, decodes advertising data (name, vendor, services), merges
+devices and shows a live table sorted by signal. Deeper GATT enumeration
+(connections) is a later phase.
 
 ## Requirements
 
-- Linux with BlueZ (`bluetoothctl`)
+- Linux with a BlueZ kernel stack (no libbluetooth-dev needed)
 - A Bluetooth adapter supporting BLE
-- User in the `bluetooth` group (scanning needs no root)
+- `gcc` and `make`
+
+## Build & run
+
+```sh
+make                       # build ./build/bleurp
+make test                  # run the unit tests
+
+# Discovery needs CAP_NET_ADMIN. Grant it once to the binary:
+make setcap                # sudo setcap cap_net_raw,cap_net_admin+eip ./build/bleurp
+./build/bleurp             # live scan until Ctrl-C
+./build/bleurp -t 10       # scan for 10 seconds
+./build/bleurp -i 0        # select HCI controller index (hci0)
+```
+
+Without the capability, run under `sudo ./build/bleurp`. Reading the adapter
+info works unprivileged; starting a discovery does not.
 
 ## Documentation
 
