@@ -71,6 +71,24 @@ struct mgmt_hdr {
     uint16_t len;    // parameter length that follows the header
 };
 
+// Minimum Device Found parameter length: address(6) type(1) rssi(1)
+// flags(4) eir_len(2), before the variable EIR/AD data.
+#define MGMT_DEVICE_FOUND_MIN_PARAMS 14
+
+// One device reported by a Device Found event. `eir` points into the
+// caller's event buffer and is valid only while that buffer lives.
+struct mgmt_device {
+    uint8_t        address[6]; // BD_ADDR (little-endian, HCI order)
+    uint8_t        addr_type;  // MGMT_ADDR_TYPE_*
+    int8_t         rssi;       // dBm
+    uint32_t       flags;      // mgmt device flags
+    const uint8_t *eir;        // EIR/AD data, or NULL if empty
+    uint16_t       eir_len;    // length of `eir`
+};
+
+// Callback invoked for each device parsed from a Device Found event.
+typedef void (*mgmt_device_cb)(const struct mgmt_device *dev, void *user);
+
 // Decoded Read Controller Information reply.
 struct mgmt_controller_info {
     uint8_t  address[6];         // BD_ADDR (little-endian, HCI order)
@@ -97,6 +115,29 @@ ssize_t mgmt_build_command(uint8_t *buf, size_t buf_len,
 // Returns 0 on success, or -1 with errno set (EINVAL if buf/out is NULL,
 // EBADMSG if fewer than MGMT_HDR_SIZE bytes are available).
 int mgmt_parse_header(const uint8_t *buf, size_t len, struct mgmt_hdr *out);
+
+// Build a Start Discovery command for `index` with an address-type bitmask
+// (e.g. MGMT_ADDR_LE). Returns packet length or -1.
+ssize_t mgmt_build_start_discovery(uint8_t *buf, size_t buf_len,
+                                   uint16_t index, uint8_t addr_type_mask);
+
+// Build a Stop Discovery command (same address-type bitmask as started).
+// Returns packet length or -1.
+ssize_t mgmt_build_stop_discovery(uint8_t *buf, size_t buf_len,
+                                  uint16_t index, uint8_t addr_type_mask);
+
+// Parse a Device Found event into `out`. `evt` points at the start of the
+// mgmt event (header included). Returns 0 on success, or -1 with errno set
+// (EINVAL if evt/out is NULL, EBADMSG if not a Device Found or truncated).
+int mgmt_parse_device_found(const uint8_t *evt, size_t len,
+                            struct mgmt_device *out);
+
+// Parse one mgmt event and, if it is a Device Found, invoke `cb`. Other
+// events are ignored. Returns 1 when a device was dispatched, 0 when the
+// event was ignored, or -1 with errno set (EINVAL for NULL evt/cb, EBADMSG
+// for a malformed Device Found).
+int mgmt_dispatch_event(const uint8_t *evt, size_t len,
+                        mgmt_device_cb cb, void *user);
 
 // Test whether a settings bitmask has a given MGMT_SETTING_* flag.
 bool mgmt_has_setting(uint32_t settings, uint32_t flag);
