@@ -24,6 +24,8 @@ built and tested in isolation (TDD) before it is wired into the tool.
     dev_table.h
     ui.c         wifite-style live table (colour, bars, sort) [DONE, tested]
     ui.h
+    cli.c        argv -> struct cli_opts (-i/-t/-o/--json/...) [DONE, tested]
+    cli.h        (see docs/cli-args.md)
     main.c       CLI + mgmt discovery loop -> ad_parse -> UI  [DONE]
 
   Phase 2 (contact/connection):
@@ -36,9 +38,10 @@ built and tested in isolation (TDD) before it is wired into the tool.
     main.c       + enum/read/write subcommands                [DONE]
     Phase 2 complete: scan -> connect -> enumerate -> read/write
 
-    Phase 1 leftovers: export CSV/JSON (#9), full CLI (#7), packaging (#10)
+    Phase 1 leftovers: export CSV/JSON (#9), packaging (#10)
   tests/
     test.h            tiny assertion framework
+    test_cli.c        unit tests for cli (argument parsing) [DONE]
     test_hci_cmd.c    unit tests for hci_cmd               [DONE]
     test_hci_dev.c    unit tests for hci_dev               [DONE]
     test_hci_info.c   unit tests for hci_info              [DONE]
