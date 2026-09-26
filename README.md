@@ -30,7 +30,12 @@ make setcap                # sudo setcap cap_net_raw,cap_net_admin+eip ./build/b
 ./build/bleurp             # live scan until Ctrl-C
 ./build/bleurp -t 10       # scan for 10 seconds
 ./build/bleurp -i 0        # select HCI controller index (hci0)
+
+# Connect to an authorized device and dump its GATT tree:
+./build/bleurp enum AA:BB:CC:DD:EE:FF -t random
 ```
+
+Use `enum` only on devices you own or are authorized to test.
 
 Without the capability, run under `sudo ./build/bleurp`. Reading the adapter
 info works unprivileged; starting a discovery does not.
