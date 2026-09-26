@@ -34,6 +34,7 @@ make setcap                # sudo setcap cap_net_raw,cap_net_admin+eip ./build/b
 
 # Connect to an authorized device and interact with GATT:
 ./build/bleurp enum  AA:BB:CC:DD:EE:FF -t random           # dump the GATT tree
+./build/bleurp audit AA:BB:CC:DD:EE:FF -t random           # audit unauthenticated access
 ./build/bleurp read  AA:BB:CC:DD:EE:FF 0x0012 -t random    # read a handle
 ./build/bleurp write AA:BB:CC:DD:EE:FF 0x0012 01ff -t random  # write bytes
 ```

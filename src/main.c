@@ -21,6 +21,7 @@
 
 #include "ad_parse.h"
 #include "addr_priv.h"
+#include "audit.h"
 #include "dev_table.h"
 #include "gatt.h"
 #include "l2cap.h"
@@ -109,13 +110,14 @@ static void usage(const char *prog) {
             "  %s                                      interactive menu (default)\n"
             "  %s scan  [-i index] [-t seconds] [-v]   live BLE scan\n"
             "  %s enum  <ADDR> [-t public|random]      connect and dump GATT\n"
+            "  %s audit <ADDR> [-t public|random]      audit unauthenticated GATT access\n"
             "  %s read  <ADDR> <handle> [-t ...]       read a value by handle\n"
             "  %s write <ADDR> <handle> <hex> [-t ...] write bytes by handle\n"
             "  -i index    HCI controller index (default 0 = hci0)\n"
             "  -t seconds  scan duration; 0 = until Ctrl-C (default 0)\n"
             "  -v          verbose scan (per-device vendor/services details)\n"
             "Only use on devices you own or are authorized to test.\n",
-            prog, prog, prog, prog, prog);
+            prog, prog, prog, prog, prog, prog);
 }
 
 // Write an mgmt packet; returns 0 if the write did not error, -1 otherwise.
@@ -340,6 +342,91 @@ static int do_enum(const uint8_t addr[6], uint8_t atype) {
     return 0;
 }
 
+// Probe one readable characteristic and print its audit verdict. Reads the
+// value handle and classifies the outcome; never writes. `atype` is unused
+// beyond the already-open socket but kept for signature symmetry.
+static void audit_probe_char(int fd, const struct gatt_char *c) {
+    char pr[16];
+    props_str(c->properties, pr, sizeof pr);
+
+    char uuid[24];
+    if (c->uuid_is_128) snprintf(uuid, sizeof uuid, "128-bit");
+    else                snprintf(uuid, sizeof uuid, "0x%04X", c->uuid16);
+
+    const char *svc_name = c->uuid_is_128 ? NULL : ad_service_name(c->uuid16);
+
+    if (c->properties & GATT_PROP_READ) {
+        uint8_t buf[517];
+        size_t len = 0;
+        uint8_t err = 0;
+        int rc = gatt_read(fd, c->value_handle, buf, sizeof buf, &len, &err);
+        audit_verdict_t v = audit_classify_read(rc == 0, err);
+        printf("  0x%04X  [%-6s]  %-8s %-10s", c->value_handle, pr, uuid,
+               audit_verdict_label(v));
+        if (v == AUDIT_OPEN)           printf(" %zu byte(s) readable unauthenticated", len);
+        else if (v == AUDIT_PROTECTED) printf(" needs pairing (ATT 0x%02x)", err);
+        else if (v == AUDIT_OTHER && err) printf(" ATT 0x%02x", err);
+        if (svc_name) printf("  (%s)", svc_name);
+        printf("\n");
+    } else {
+        // Not readable: report the capability, do not touch the value.
+        printf("  0x%04X  [%-6s]  %-8s %-10s", c->value_handle, pr, uuid, "-");
+        if (c->properties & (GATT_PROP_WRITE | GATT_PROP_WRITE_NR | GATT_PROP_SIGNED_WRITE))
+            printf(" write-capable (not tested)");
+        if (svc_name) printf("  (%s)", svc_name);
+        printf("\n");
+    }
+}
+
+// Connect to an authorized device and audit which characteristics are
+// accessible without pairing. Reads readable values only; write-capable
+// characteristics are reported but never written. Address is in HCI order.
+static int do_audit(const uint8_t addr[6], uint8_t atype) {
+    char as[18];
+    snprintf(as, sizeof as, "%02X:%02X:%02X:%02X:%02X:%02X",
+             addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
+
+    addr_privacy_t p = addr_privacy(addr, atype);
+    fprintf(stderr, "Authorized targets only. Connecting to %s ...\n", as);
+    int fd = bleurp_l2_connect(addr, atype);
+    if (fd < 0) {
+        perror("connect");
+        return 1;
+    }
+
+    uint16_t mtu = 0;
+    (void)gatt_exchange_mtu(fd, 517, &mtu);
+    printf("GATT access audit for %s (priv=%s%s, ATT MTU=%u)\n\n", as,
+           addr_privacy_label(p), addr_is_trackable(p) ? " [trackable]" : "",
+           mtu ? mtu : 23);
+
+    struct gatt_service svcs[64];
+    size_t nsvc = 0;
+    if (gatt_discover_services(fd, svcs, 64, &nsvc) < 0) {
+        perror("discover services");
+        bleurp_l2_close(fd);
+        return 1;
+    }
+
+    printf("  handle  props       uuid     verdict    detail\n");
+    printf("  ------  ----------  -------- ---------- ------\n");
+    size_t shown = nsvc < 64 ? nsvc : 64;
+    for (size_t i = 0; i < shown; i++) {
+        struct gatt_char chs[64];
+        size_t nch = 0;
+        gatt_discover_characteristics(fd, svcs[i].start_handle,
+                                      svcs[i].end_handle, chs, 64, &nch);
+        size_t cshown = nch < 64 ? nch : 64;
+        for (size_t j = 0; j < cshown; j++)
+            audit_probe_char(fd, &chs[j]);
+    }
+
+    printf("\nLegend: OPEN=readable without pairing  PROTECTED=needs pairing"
+           "  DENIED=read not permitted  OTHER=other ATT error\n");
+    bleurp_l2_close(fd);
+    return 0;
+}
+
 // enum subcommand: parse the address/type then dump the GATT tree.
 static int cmd_enum(int argc, char **argv) {
     uint8_t atype = BLEURP_BDADDR_LE_PUBLIC;
@@ -366,6 +453,34 @@ static int cmd_enum(int argc, char **argv) {
         return 2;
     }
     return do_enum(addr, atype);
+}
+
+// audit subcommand: parse the address/type then audit unauthenticated access.
+static int cmd_audit(int argc, char **argv) {
+    uint8_t atype = BLEURP_BDADDR_LE_PUBLIC;
+    int opt;
+    while ((opt = getopt(argc, argv, "t:h")) != -1) {
+        switch (opt) {
+        case 't':
+            atype = (strcmp(optarg, "random") == 0) ? BLEURP_BDADDR_LE_RANDOM
+                                                     : BLEURP_BDADDR_LE_PUBLIC;
+            break;
+        case 'h':
+        default:
+            fprintf(stderr, "Usage: bleurp audit <ADDR> [-t public|random]\n");
+            return (opt == 'h') ? 0 : 2;
+        }
+    }
+    if (optind >= argc) {
+        fprintf(stderr, "Usage: bleurp audit <ADDR> [-t public|random]\n");
+        return 2;
+    }
+    uint8_t addr[6];
+    if (parse_addr(argv[optind], addr) < 0) {
+        fprintf(stderr, "invalid address: %s\n", argv[optind]);
+        return 2;
+    }
+    return do_audit(addr, atype);
 }
 
 // Hex digit value, or -1.
@@ -594,6 +709,7 @@ static int cmd_menu(void) {
 int main(int argc, char **argv) {
     if (argc >= 2) {
         if (strcmp(argv[1], "enum") == 0)  return cmd_enum(argc - 1, argv + 1);
+        if (strcmp(argv[1], "audit") == 0) return cmd_audit(argc - 1, argv + 1);
         if (strcmp(argv[1], "read") == 0)  return cmd_read(argc - 1, argv + 1);
         if (strcmp(argv[1], "write") == 0) return cmd_write(argc - 1, argv + 1);
         if (strcmp(argv[1], "scan") == 0)  return cmd_scan(argc - 1, argv + 1);
