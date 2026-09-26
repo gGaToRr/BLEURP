@@ -20,7 +20,8 @@ built and tested in isolation (TDD) before it is wired into the tool.
     mgmt.h       (primary discovery path: clean, coexists with bluetoothd)
     ad_parse.c   decode AD (name, UUIDs, company), best label [DONE, tested]
     ad_parse.h
-    (next) dev_table.c merge Device Found, dedup, keep best name (#6)
+    dev_table.c  merge/dedup Device Found, best name+rssi     [DONE, tested]
+    dev_table.h
     (next) ui.c + main.c  wifite-style live table (#8) + CLI (#7)
   tests/
     test.h            tiny assertion framework
