@@ -43,6 +43,14 @@ struct gatt_char {
     uint8_t  uuid128[16];
 };
 
+// A characteristic descriptor (e.g. the CCCD, UUID 0x2902).
+struct gatt_descriptor {
+    uint16_t handle;
+    bool     uuid_is_128;
+    uint16_t uuid16;
+    uint8_t  uuid128[16];
+};
+
 // --- Pure parsers (unit tested) ---
 
 // Parse one Read By Group Type Response element (elem_len 6 = 16-bit UUID,
@@ -54,6 +62,11 @@ int gatt_parse_service(const uint8_t *elem, uint8_t elem_len,
 // 128-bit) into a characteristic. Returns 0, or -1 with errno.
 int gatt_parse_characteristic(const uint8_t *elem, uint8_t elem_len,
                               struct gatt_char *out);
+
+// Parse one Find Information Response element (elem_len 4 = 16-bit UUID, 18 =
+// 128-bit) into a descriptor. Returns 0, or -1 with errno.
+int gatt_parse_descriptor(const uint8_t *elem, uint8_t elem_len,
+                          struct gatt_descriptor *out);
 
 // --- Discovery over a connected ATT socket (`fd` from bleurp_l2_connect) ---
 
@@ -70,5 +83,38 @@ int gatt_discover_services(int fd, struct gatt_service *out, size_t max,
 int gatt_discover_characteristics(int fd, uint16_t start, uint16_t end,
                                   struct gatt_char *out, size_t max,
                                   size_t *count);
+
+// Discover descriptors (Find Information) within a handle range.
+int gatt_discover_descriptors(int fd, uint16_t start, uint16_t end,
+                              struct gatt_descriptor *out, size_t max,
+                              size_t *count);
+
+// --- Read / write / subscribe on authorized devices ---
+
+// Read a characteristic/descriptor value by handle. On success writes up to
+// `cap` bytes into `out` and sets *out_len. On an ATT Error Response, sets
+// *att_error (if non-NULL) to the ATT error code and returns -1 (errno
+// EACCES). Other failures return -1 with errno set.
+int gatt_read(int fd, uint16_t handle, uint8_t *out, size_t cap,
+              size_t *out_len, uint8_t *att_error);
+
+// Write a value with acknowledgement (Write Request). Same ATT error
+// convention as gatt_read. Returns 0 on the Write Response.
+int gatt_write(int fd, uint16_t handle, const uint8_t *value, size_t len,
+               uint8_t *att_error);
+
+// Write a value without acknowledgement (Write Command). Returns 0 or -1.
+int gatt_write_command(int fd, uint16_t handle, const uint8_t *value,
+                       size_t len);
+
+// Subscribe to notifications (or indications) by writing the CCCD handle.
+int gatt_subscribe(int fd, uint16_t cccd_handle, bool indicate,
+                   uint8_t *att_error);
+
+// Wait for a Handle Value Notification up to `timeout_ms`. On success sets
+// *handle and copies up to `cap` bytes into `out` (*out_len). Returns 1 when
+// one arrived, 0 on timeout, or -1 with errno.
+int gatt_wait_notification(int fd, int timeout_ms, uint16_t *handle,
+                           uint8_t *out, size_t cap, size_t *out_len);
 
 #endif // BLEURP_GATT_H

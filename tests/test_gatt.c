@@ -79,6 +79,31 @@ static void test_bad(void) {
     CHECK(errno == EINVAL);
 }
 
+// A 16-bit-UUID descriptor element (4 bytes): handle, uuid.
+static void test_descriptor_uuid16(void) {
+    const uint8_t el[] = {0x25, 0x00, 0x02, 0x29}; // handle 0x25, CCCD 0x2902
+    struct gatt_descriptor d;
+    CHECK(gatt_parse_descriptor(el, sizeof el, &d) == 0);
+    CHECK(d.handle == 0x0025);
+    CHECK(d.uuid_is_128 == false);
+    CHECK(d.uuid16 == 0x2902);
+}
+
+// A 128-bit-UUID descriptor element (18 bytes).
+static void test_descriptor_uuid128(void) {
+    uint8_t el[18] = {0x40, 0x00};
+    for (int i = 0; i < 16; i++) el[2 + i] = (uint8_t)(i + 1);
+    struct gatt_descriptor d;
+    CHECK(gatt_parse_descriptor(el, sizeof el, &d) == 0);
+    CHECK(d.handle == 0x0040);
+    CHECK(d.uuid_is_128 == true);
+    CHECK(d.uuid128[0] == 1 && d.uuid128[15] == 16);
+    // Unsupported size rejected.
+    errno = 0;
+    CHECK(gatt_parse_descriptor(el, 5, &d) == -1);
+    CHECK(errno == EBADMSG);
+}
+
 // Entry point: run every test case and report the aggregate result.
 int main(void) {
     printf("test_gatt\n");
@@ -87,5 +112,7 @@ int main(void) {
     test_char_uuid16();
     test_char_uuid128();
     test_bad();
+    test_descriptor_uuid16();
+    test_descriptor_uuid128();
     return TEST_REPORT();
 }

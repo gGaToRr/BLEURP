@@ -140,3 +140,30 @@ int att_list_next(struct att_list *it, const uint8_t **elem) {
     it->pos += it->elem_len;
     return 1;
 }
+
+// Begin iterating a Find Information Response. See att.h.
+int att_findinfo_begin(const uint8_t *pdu, size_t len, struct att_list *it,
+                       uint8_t *format) {
+    if (pdu == NULL || it == NULL) { errno = EINVAL; return -1; }
+    if (len < 2 || pdu[0] != ATT_OP_FIND_INFO_RSP) { errno = EBADMSG; return -1; }
+    uint8_t fmt = pdu[1];
+    uint8_t elem_len = (fmt == 0x01) ? 4 : (fmt == 0x02) ? 18 : 0;
+    if (elem_len == 0) { errno = EBADMSG; return -1; }
+    it->elem_len = elem_len;
+    it->data = &pdu[2];
+    it->remaining = len - 2;
+    it->pos = 0;
+    if (format) { *format = fmt; }
+    return 0;
+}
+
+// Parse a Handle Value Notification. See att.h.
+int att_parse_notification(const uint8_t *pdu, size_t len, uint16_t *handle,
+                           const uint8_t **value, size_t *value_len) {
+    if (pdu == NULL || handle == NULL) { errno = EINVAL; return -1; }
+    if (len < 3 || pdu[0] != ATT_OP_HANDLE_VALUE_NTF) { errno = EBADMSG; return -1; }
+    *handle = rd_le16(&pdu[1]);
+    if (value) { *value = (len > 3) ? &pdu[3] : NULL; }
+    if (value_len) { *value_len = len - 3; }
+    return 0;
+}

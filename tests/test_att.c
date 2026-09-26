@@ -153,6 +153,62 @@ static void test_list_begin_bad(void) {
     CHECK(errno == EBADMSG);
 }
 
+// Find Information Response iteration (format 1 = 16-bit UUID, 4-byte elems).
+static void test_findinfo_iter(void) {
+    const uint8_t pdu[] = {
+        0x05, 0x01,
+        0x01, 0x00, 0x00, 0x28, // handle 1, uuid 0x2800
+        0x02, 0x00, 0x03, 0x28, // handle 2, uuid 0x2803
+    };
+    struct att_list it;
+    uint8_t fmt = 0;
+    CHECK(att_findinfo_begin(pdu, sizeof pdu, &it, &fmt) == 0);
+    CHECK(fmt == 0x01);
+    CHECK(it.elem_len == 4);
+    const uint8_t *el;
+    CHECK(att_list_next(&it, &el) == 1);
+    CHECK(el[0] == 0x01 && el[2] == 0x00 && el[3] == 0x28);
+    CHECK(att_list_next(&it, &el) == 1);
+    CHECK(att_list_next(&it, &el) == 0);
+}
+
+// Find Information with the 128-bit format uses 18-byte elements.
+static void test_findinfo_128(void) {
+    uint8_t pdu[2 + 18] = {0x05, 0x02};
+    struct att_list it;
+    uint8_t fmt = 0;
+    CHECK(att_findinfo_begin(pdu, sizeof pdu, &it, &fmt) == 0);
+    CHECK(fmt == 0x02);
+    CHECK(it.elem_len == 18);
+    // A bad format byte is rejected.
+    const uint8_t bad[] = {0x05, 0x09};
+    errno = 0;
+    CHECK(att_findinfo_begin(bad, sizeof bad, &it, NULL) == -1);
+    CHECK(errno == EBADMSG);
+}
+
+// Handle Value Notification parsing.
+static void test_parse_notification(void) {
+    const uint8_t pdu[] = {0x1b, 0x25, 0x00, 0xde, 0xad};
+    uint16_t h = 0;
+    const uint8_t *v = NULL;
+    size_t vlen = 0;
+    CHECK(att_parse_notification(pdu, sizeof pdu, &h, &v, &vlen) == 0);
+    CHECK(h == 0x0025);
+    CHECK(vlen == 2);
+    CHECK(v != NULL && v[0] == 0xde && v[1] == 0xad);
+
+    const uint8_t empty[] = {0x1b, 0x25, 0x00};
+    CHECK(att_parse_notification(empty, sizeof empty, &h, &v, &vlen) == 0);
+    CHECK(vlen == 0);
+    CHECK(v == NULL);
+
+    const uint8_t wrong[] = {0x0b, 0x00};
+    errno = 0;
+    CHECK(att_parse_notification(wrong, sizeof wrong, &h, &v, &vlen) == -1);
+    CHECK(errno == EBADMSG);
+}
+
 // Entry point: run every test case and report the aggregate result.
 int main(void) {
     printf("test_att\n");
@@ -168,5 +224,8 @@ int main(void) {
     test_parse_mtu_rsp();
     test_list_iter();
     test_list_begin_bad();
+    test_findinfo_iter();
+    test_findinfo_128();
+    test_parse_notification();
     return TEST_REPORT();
 }

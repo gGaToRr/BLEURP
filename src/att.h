@@ -98,4 +98,15 @@ int att_list_begin(const uint8_t *pdu, size_t len, struct att_list *it);
 // returns 0 when the list is exhausted. Element size is `it->elem_len`.
 int att_list_next(struct att_list *it, const uint8_t **elem);
 
+// Begin iterating a Find Information Response (0x05). Sets the iterator's
+// element size from the format byte (1 = handle+uuid16 = 4 bytes, 2 =
+// handle+uuid128 = 18 bytes) and, if non-NULL, *format. Returns 0 or -1.
+int att_findinfo_begin(const uint8_t *pdu, size_t len, struct att_list *it,
+                       uint8_t *format);
+
+// Parse a Handle Value Notification (0x1B): the attribute handle and a
+// pointer/length into the value. Returns 0, or -1 with errno (EINVAL/EBADMSG).
+int att_parse_notification(const uint8_t *pdu, size_t len, uint16_t *handle,
+                           const uint8_t **value, size_t *value_len);
+
 #endif // BLEURP_ATT_H
