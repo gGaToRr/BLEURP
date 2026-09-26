@@ -27,9 +27,10 @@ make test                  # run the unit tests
 
 # Discovery needs CAP_NET_ADMIN. Grant it once to the binary:
 make setcap                # sudo setcap cap_net_raw,cap_net_admin+eip ./build/bleurp
-./build/bleurp             # live scan until Ctrl-C
-./build/bleurp -t 10       # scan for 10 seconds
-./build/bleurp -i 0        # select HCI controller index (hci0)
+./build/bleurp             # interactive menu (option 1 = verbose scan)
+./build/bleurp scan        # live scan until Ctrl-C
+./build/bleurp scan -t 10  # scan for 10 seconds
+./build/bleurp scan -v     # verbose (per-device vendor/services details)
 
 # Connect to an authorized device and interact with GATT:
 ./build/bleurp enum  AA:BB:CC:DD:EE:FF -t random           # dump the GATT tree

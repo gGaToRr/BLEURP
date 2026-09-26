@@ -61,7 +61,7 @@ int ui_format_row(char *buf, size_t buf_len, int index,
 
 // Redraw the whole table in place. See ui.h for the contract.
 void ui_render(const struct dev_table *t, time_t start, time_t now,
-               FILE *out) {
+               int verbose, FILE *out) {
     size_t count = dev_table_count(t);
     long elapsed = (long)(now - start);
 
@@ -79,6 +79,9 @@ void ui_render(const struct dev_table *t, time_t start, time_t now,
         ui_format_row(row, sizeof row, (int)i + 1, e);
         // Colour the whole line by signal band (like wifite colours targets).
         fprintf(out, "  %s%s%s\033[K\n", ui_rssi_color(e->rssi), row, UI_RESET);
+        if (verbose && e->details[0] != '\0') {
+            fprintf(out, "         \342\224\224 %s\033[K\n", e->details);
+        }
     }
 
     fprintf(out, "\033[J"); // clear anything left below a shorter frame

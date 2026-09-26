@@ -31,8 +31,9 @@ int ui_format_row(char *buf, size_t buf_len, int index,
                   const struct dev_entry *e);
 
 // Redraw the whole table in place (cursor home + clear), with a header line
-// showing elapsed seconds and device count. The caller sorts beforehand.
+// showing elapsed seconds and device count. When `verbose` is non-zero, an
+// indented details line is shown under each device. The caller sorts first.
 void ui_render(const struct dev_table *t, time_t start, time_t now,
-               FILE *out);
+               int verbose, FILE *out);
 
 #endif // BLEURP_UI_H

@@ -44,34 +44,67 @@ struct scan_ctx {
     struct dev_table *table;
 };
 
+// Build a verbose one-line summary from parsed advertising data: vendor,
+// service count/name, TX power, flags, appearance. Purely descriptive; it is
+// not a device name (we never present a guessed vendor as the name).
+static void make_details(const struct ad_info *in, char *out, size_t n) {
+    size_t used = 0;
+    out[0] = '\0';
+#define APP(...) do { \
+        if (used < n) { \
+            int w = snprintf(out + used, n - used, __VA_ARGS__); \
+            if (w < 0) { /* ignore */ } \
+            else if ((size_t)w >= n - used) used = n - 1; \
+            else used += (size_t)w; \
+        } \
+    } while (0)
+    if (in->has_company) {
+        const char *v = ad_company_name(in->company_id);
+        if (v) APP("vendor=%s ", v);
+        else   APP("mfr=0x%04x ", in->company_id);
+    }
+    if (in->n_uuid16 > 0) {
+        const char *s = NULL;
+        for (int i = 0; i < in->n_uuid16 && !s; i++) s = ad_service_name(in->uuid16[i]);
+        APP("svc=%d%s%s ", in->n_uuid16, s ? ":" : "", s ? s : "");
+    }
+    if (in->has_tx_power)   APP("tx=%ddBm ", in->tx_power);
+    if (in->has_flags)      APP("flags=0x%02x ", in->flags);
+    if (in->has_appearance) APP("appr=0x%04x ", in->appearance);
+#undef APP
+}
+
 // Merge one discovered device into the table. We only trust the real device
 // name (from the advertising data or scan response); we do NOT guess a vendor
 // from the manufacturer company id, which produces misleading labels (e.g.
-// everything showing as "Apple"). No name -> shown as unknown.
+// everything showing as "Apple"). No name -> shown as unknown. The verbose
+// vendor/service summary is stored separately in the entry's details.
 static void on_device(const struct mgmt_device *d, void *user) {
     struct scan_ctx *c = user;
     struct ad_info info;
-    const char *name = "";
-    if (ad_parse(d->eir, d->eir_len, &info) == 0 && info.has_name) {
-        name = info.name;
+    int ok = (ad_parse(d->eir, d->eir_len, &info) == 0);
+    const char *name = (ok && info.has_name) ? info.name : "";
+    struct dev_entry *e = dev_table_upsert(c->table, d->address, d->addr_type,
+                                           d->rssi, name, time(NULL));
+    if (e && ok) {
+        make_details(&info, e->details, sizeof e->details);
     }
-    dev_table_upsert(c->table, d->address, d->addr_type, d->rssi,
-                     name, time(NULL));
 }
 
 // Print usage for the scan command / top level.
 static void usage(const char *prog) {
     fprintf(stderr,
             "Usage:\n"
-            "  %s [-i index] [-t seconds]              live BLE scan (default)\n"
+            "  %s                                      interactive menu (default)\n"
+            "  %s scan  [-i index] [-t seconds] [-v]   live BLE scan\n"
             "  %s enum  <ADDR> [-t public|random]      connect and dump GATT\n"
             "  %s read  <ADDR> <handle> [-t ...]       read a value by handle\n"
             "  %s write <ADDR> <handle> <hex> [-t ...] write bytes by handle\n"
             "  -i index    HCI controller index (default 0 = hci0)\n"
             "  -t seconds  scan duration; 0 = until Ctrl-C (default 0)\n"
-            "  -h          show this help\n"
+            "  -v          verbose scan (per-device vendor/services details)\n"
             "Only use on devices you own or are authorized to test.\n",
-            prog, prog, prog, prog);
+            prog, prog, prog, prog, prog);
 }
 
 // Write an mgmt packet; returns 0 if the write did not error, -1 otherwise.
@@ -82,24 +115,17 @@ static int send_pkt(int fd, const uint8_t *pkt, ssize_t n) {
     return (write(fd, pkt, (size_t)n) < 0) ? -1 : 0;
 }
 
-static int cmd_scan(int argc, char **argv) {
-    int index = 0;
-    long duration = 0;
-
-    int opt;
-    while ((opt = getopt(argc, argv, "i:t:h")) != -1) {
-        switch (opt) {
-        case 'i': index = atoi(optarg); break;
-        case 't': duration = atol(optarg); break;
-        case 'h': usage(argv[0]); return 0;
-        default:  usage(argv[0]); return 2;
-        }
-    }
+// Run a live scan into `table` (already initialized) until `duration` seconds
+// elapse or Ctrl-C. `verbose` shows a per-device details line. Returns 0 on a
+// normal stop, or -1 on a setup failure (message already printed).
+static int run_scan(int index, long duration, int verbose,
+                    struct dev_table *table) {
+    g_stop = 0;
 
     int fd = mgmt_open();
     if (fd < 0) {
         perror("mgmt_open");
-        return 1;
+        return -1;
     }
 
     uint8_t cmd[64];
@@ -108,7 +134,7 @@ static int cmd_scan(int argc, char **argv) {
     // Read controller info to show the adapter and confirm LE support.
     ssize_t n = mgmt_build_command(cmd, sizeof cmd, MGMT_OP_READ_CONTROLLER_INFO,
                                    (uint16_t)index, NULL, 0);
-    if (send_pkt(fd, cmd, n) < 0) { perror("write"); mgmt_close(fd); return 1; }
+    if (send_pkt(fd, cmd, n) < 0) { perror("write"); mgmt_close(fd); return -1; }
     ssize_t r = read(fd, buf, sizeof buf);
     struct mgmt_controller_info info;
     if (r > 0 && mgmt_parse_controller_info(buf, (size_t)r, &info) == 0) {
@@ -128,7 +154,7 @@ static int cmd_scan(int argc, char **argv) {
 
     // Start LE discovery, then read the command response to catch errors.
     n = mgmt_build_start_discovery(cmd, sizeof cmd, (uint16_t)index, MGMT_ADDR_LE);
-    if (send_pkt(fd, cmd, n) < 0) { perror("write"); mgmt_close(fd); return 1; }
+    if (send_pkt(fd, cmd, n) < 0) { perror("write"); mgmt_close(fd); return -1; }
 
     r = read(fd, buf, sizeof buf);
     if (r >= 9) {
@@ -141,14 +167,12 @@ static int cmd_scan(int argc, char **argv) {
                         status, status == 0x14 ?
                         " (Permission Denied: run with sudo, or setcap cap_net_admin)" : "");
                 mgmt_close(fd);
-                return 1;
+                return -1;
             }
         }
     }
 
-    struct dev_table table;
-    if (dev_table_init(&table) < 0) { perror("dev_table_init"); mgmt_close(fd); return 1; }
-    struct scan_ctx ctx = { .table = &table };
+    struct scan_ctx ctx = { .table = table };
 
     // A Device Found may have arrived in the response read above.
     if (r > 0) { (void)mgmt_dispatch_event(buf, (size_t)r, on_device, &ctx); }
@@ -181,20 +205,43 @@ static int cmd_scan(int argc, char **argv) {
             last_refresh = now;
         }
 
-        dev_table_sort_by_rssi(&table);
-        ui_render(&table, start, now, stdout);
+        dev_table_sort_by_rssi(table);
+        ui_render(table, start, now, verbose, stdout);
     }
 
     // Stop discovery and draw a final frame.
     n = mgmt_build_stop_discovery(cmd, sizeof cmd, (uint16_t)index, MGMT_ADDR_LE);
     (void)send_pkt(fd, cmd, n);
-    dev_table_sort_by_rssi(&table);
-    ui_render(&table, start, time(NULL), stdout);
-    printf("\nStopped. %zu device(s) found.\n", dev_table_count(&table));
+    dev_table_sort_by_rssi(table);
+    ui_render(table, start, time(NULL), verbose, stdout);
 
-    dev_table_free(&table);
     mgmt_close(fd);
     return 0;
+}
+
+// scan subcommand: a one-shot live scan (until duration or Ctrl-C).
+static int cmd_scan(int argc, char **argv) {
+    int index = 0;
+    long duration = 0;
+    int verbose = 0;
+
+    int opt;
+    while ((opt = getopt(argc, argv, "i:t:vh")) != -1) {
+        switch (opt) {
+        case 'i': index = atoi(optarg); break;
+        case 't': duration = atol(optarg); break;
+        case 'v': verbose = 1; break;
+        case 'h': usage(argv[0]); return 0;
+        default:  usage(argv[0]); return 2;
+        }
+    }
+
+    struct dev_table table;
+    if (dev_table_init(&table) < 0) { perror("dev_table_init"); return 1; }
+    int rc = run_scan(index, duration, verbose, &table);
+    printf("\nStopped. %zu device(s) found.\n", dev_table_count(&table));
+    dev_table_free(&table);
+    return rc < 0 ? 1 : 0;
 }
 
 // Parse "AA:BB:CC:DD:EE:FF" into HCI byte order (LSB first). Returns 0 or -1.
@@ -226,35 +273,13 @@ static void props_str(uint8_t p, char *buf, size_t n) {
     }
 }
 
-// enum subcommand: connect to a device and print its GATT tree.
-static int cmd_enum(int argc, char **argv) {
-    uint8_t atype = BLEURP_BDADDR_LE_PUBLIC;
-    int opt;
-    while ((opt = getopt(argc, argv, "t:h")) != -1) {
-        switch (opt) {
-        case 't':
-            atype = (strcmp(optarg, "random") == 0) ? BLEURP_BDADDR_LE_RANDOM
-                                                     : BLEURP_BDADDR_LE_PUBLIC;
-            break;
-        case 'h':
-        default:
-            fprintf(stderr, "Usage: bleurp enum <ADDR> [-t public|random]\n");
-            return (opt == 'h') ? 0 : 2;
-        }
-    }
-    if (optind >= argc) {
-        fprintf(stderr, "Usage: bleurp enum <ADDR> [-t public|random]\n");
-        return 2;
-    }
+// Connect to a device and print its GATT tree. Address is in HCI byte order.
+static int do_enum(const uint8_t addr[6], uint8_t atype) {
+    char as[18];
+    snprintf(as, sizeof as, "%02X:%02X:%02X:%02X:%02X:%02X",
+             addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
 
-    const char *addr_str = argv[optind];
-    uint8_t addr[6];
-    if (parse_addr(addr_str, addr) < 0) {
-        fprintf(stderr, "invalid address: %s\n", addr_str);
-        return 2;
-    }
-
-    fprintf(stderr, "Authorized targets only. Connecting to %s ...\n", addr_str);
+    fprintf(stderr, "Authorized targets only. Connecting to %s ...\n", as);
     int fd = bleurp_l2_connect(addr, atype);
     if (fd < 0) {
         perror("connect");
@@ -263,7 +288,7 @@ static int cmd_enum(int argc, char **argv) {
 
     uint16_t mtu = 0;
     (void)gatt_exchange_mtu(fd, 517, &mtu);
-    printf("Connected to %s (ATT MTU=%u)\n\n", addr_str, mtu ? mtu : 23);
+    printf("Connected to %s (ATT MTU=%u)\n\n", as, mtu ? mtu : 23);
 
     struct gatt_service svcs[64];
     size_t nsvc = 0;
@@ -302,6 +327,34 @@ static int cmd_enum(int argc, char **argv) {
 
     bleurp_l2_close(fd);
     return 0;
+}
+
+// enum subcommand: parse the address/type then dump the GATT tree.
+static int cmd_enum(int argc, char **argv) {
+    uint8_t atype = BLEURP_BDADDR_LE_PUBLIC;
+    int opt;
+    while ((opt = getopt(argc, argv, "t:h")) != -1) {
+        switch (opt) {
+        case 't':
+            atype = (strcmp(optarg, "random") == 0) ? BLEURP_BDADDR_LE_RANDOM
+                                                     : BLEURP_BDADDR_LE_PUBLIC;
+            break;
+        case 'h':
+        default:
+            fprintf(stderr, "Usage: bleurp enum <ADDR> [-t public|random]\n");
+            return (opt == 'h') ? 0 : 2;
+        }
+    }
+    if (optind >= argc) {
+        fprintf(stderr, "Usage: bleurp enum <ADDR> [-t public|random]\n");
+        return 2;
+    }
+    uint8_t addr[6];
+    if (parse_addr(argv[optind], addr) < 0) {
+        fprintf(stderr, "invalid address: %s\n", argv[optind]);
+        return 2;
+    }
+    return do_enum(addr, atype);
 }
 
 // Hex digit value, or -1.
@@ -427,10 +480,116 @@ static int cmd_write(int argc, char **argv) {
     return 0;
 }
 
-// Dispatch: enum/read/write subcommands, otherwise the live scan.
+// Read a line from stdin into buf (newline stripped). Returns 0 or -1 on EOF.
+static int read_line(char *buf, size_t n) {
+    if (!fgets(buf, (int)n, stdin)) return -1;
+    buf[strcspn(buf, "\n")] = '\0';
+    return 0;
+}
+
+// After a scan: list results and let the operator enumerate a device by its
+// number, rescan, or return. Returns 1 to rescan, 0 to go back to the menu.
+static int post_scan_submenu(struct dev_table *table) {
+    signal(SIGINT, SIG_DFL);
+    for (;;) {
+        dev_table_sort_by_rssi(table);
+        size_t cnt = dev_table_count(table);
+        size_t shown = cnt < 40 ? cnt : 40;
+        printf("\n== Results (%zu device(s)) ==\n", cnt);
+        char row[192];
+        for (size_t i = 0; i < shown; i++) {
+            ui_format_row(row, sizeof row, (int)i + 1, dev_table_at(table, i));
+            printf("  %s\n", row);
+        }
+        printf("\n[number]=enumerate GATT   r=rescan   q=back to menu\n> ");
+        fflush(stdout);
+
+        char line[64];
+        if (read_line(line, sizeof line) < 0) return 0;
+        if (line[0] == 'q' || line[0] == '\0') return 0;
+        if (line[0] == 'r') return 1;
+        int num = atoi(line);
+        if (num >= 1 && (size_t)num <= shown) {
+            const struct dev_entry *e = dev_table_at(table, (size_t)num - 1);
+            printf("\n");
+            do_enum(e->address, e->addr_type);
+            printf("\n(enter to continue) ");
+            fflush(stdout);
+            char b[8];
+            (void)read_line(b, sizeof b);
+        }
+    }
+}
+
+// Interactive main menu (shown when bleurp runs with no subcommand).
+static int cmd_menu(void) {
+    for (;;) {
+        signal(SIGINT, SIG_DFL); // Ctrl-C at the menu exits
+        printf("\033[2J\033[H");
+        printf("  BLEURP menu\n");
+        printf("  ----------------------------------------------\n");
+        printf("  1) Automatic verbose scan (active, all devices)\n");
+        printf("  2) Enumerate a device (GATT) by address\n");
+        printf("  q) Quit\n\n> ");
+        fflush(stdout);
+
+        char line[64];
+        if (read_line(line, sizeof line) < 0) return 0;
+        if (line[0] == 'q' || line[0] == 'Q') return 0;
+
+        if (line[0] == '1') {
+            struct dev_table table;
+            if (dev_table_init(&table) < 0) { perror("dev_table_init"); continue; }
+            for (;;) {
+                if (run_scan(0, 0, 1, &table) < 0) {
+                    printf("\n(scan unavailable; enter to return) ");
+                    fflush(stdout);
+                    char b[8];
+                    (void)read_line(b, sizeof b);
+                    break;
+                }
+                if (post_scan_submenu(&table) != 1) break; // 1 = rescan
+            }
+            dev_table_free(&table);
+        } else if (line[0] == '2') {
+            signal(SIGINT, SIG_DFL);
+            printf("Address (AA:BB:CC:DD:EE:FF): ");
+            fflush(stdout);
+            char a[64];
+            if (read_line(a, sizeof a) == 0) {
+                uint8_t addr[6];
+                if (parse_addr(a, addr) == 0) {
+                    printf("Type (public/random) [public]: ");
+                    fflush(stdout);
+                    char t[16];
+                    uint8_t at = BLEURP_BDADDR_LE_PUBLIC;
+                    if (read_line(t, sizeof t) == 0 && strncmp(t, "random", 6) == 0) {
+                        at = BLEURP_BDADDR_LE_RANDOM;
+                    }
+                    do_enum(addr, at);
+                } else {
+                    printf("invalid address\n");
+                }
+            }
+            printf("\n(enter to continue) ");
+            fflush(stdout);
+            char b[8];
+            (void)read_line(b, sizeof b);
+        }
+    }
+}
+
+// Dispatch: subcommands, flags -> scan, otherwise the interactive menu.
 int main(int argc, char **argv) {
-    if (argc >= 2 && strcmp(argv[1], "enum") == 0)  return cmd_enum(argc - 1, argv + 1);
-    if (argc >= 2 && strcmp(argv[1], "read") == 0)  return cmd_read(argc - 1, argv + 1);
-    if (argc >= 2 && strcmp(argv[1], "write") == 0) return cmd_write(argc - 1, argv + 1);
-    return cmd_scan(argc, argv);
+    if (argc >= 2) {
+        if (strcmp(argv[1], "enum") == 0)  return cmd_enum(argc - 1, argv + 1);
+        if (strcmp(argv[1], "read") == 0)  return cmd_read(argc - 1, argv + 1);
+        if (strcmp(argv[1], "write") == 0) return cmd_write(argc - 1, argv + 1);
+        if (strcmp(argv[1], "scan") == 0)  return cmd_scan(argc - 1, argv + 1);
+        if (strcmp(argv[1], "menu") == 0)  return cmd_menu();
+        if (argv[1][0] == '-')             return cmd_scan(argc, argv); // back-compat
+        usage(argv[0]);
+        return 2;
+    }
+    return cmd_menu();
 }
