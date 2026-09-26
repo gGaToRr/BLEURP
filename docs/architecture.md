@@ -10,13 +10,18 @@ built and tested in isolation (TDD) before it is wired into the tool.
     hci.h        wire constants: packet types + LE scan opcodes
     hci_cmd.c    build raw HCI command packets            [DONE, tested]
     hci_cmd.h
-    (next) hci_dev.c   open/bind the raw HCI socket to an adapter
+    hci_dev.c    open/bind the raw HCI socket to an adapter [DONE, tested]
+    hci_dev.h
+    hci_info.c   read controller version, pick legacy/ext  [DONE, tested]
+    hci_info.h
     (next) hci_scan.c  drive legacy/extended LE scanning
     (next) ad_parse.c  decode advertising data (name, RSSI, UUIDs)
     (next) main.c      CLI + live device table
   tests/
     test.h            tiny assertion framework
     test_hci_cmd.c    unit tests for hci_cmd               [DONE]
+    test_hci_dev.c    unit tests for hci_dev               [DONE]
+    test_hci_info.c   unit tests for hci_info              [DONE]
 ```
 
 ## Build & test
