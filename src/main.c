@@ -63,13 +63,15 @@ static void on_device(const struct mgmt_device *d, void *user) {
 static void usage(const char *prog) {
     fprintf(stderr,
             "Usage:\n"
-            "  %s [-i index] [-t seconds]        live BLE scan (default)\n"
-            "  %s enum <ADDR> [-t public|random] connect and dump GATT\n"
+            "  %s [-i index] [-t seconds]              live BLE scan (default)\n"
+            "  %s enum  <ADDR> [-t public|random]      connect and dump GATT\n"
+            "  %s read  <ADDR> <handle> [-t ...]       read a value by handle\n"
+            "  %s write <ADDR> <handle> <hex> [-t ...] write bytes by handle\n"
             "  -i index    HCI controller index (default 0 = hci0)\n"
             "  -t seconds  scan duration; 0 = until Ctrl-C (default 0)\n"
             "  -h          show this help\n"
             "Only use on devices you own or are authorized to test.\n",
-            prog, prog);
+            prog, prog, prog, prog);
 }
 
 // Write an mgmt packet; returns 0 if the write did not error, -1 otherwise.
@@ -302,10 +304,133 @@ static int cmd_enum(int argc, char **argv) {
     return 0;
 }
 
-// Dispatch: `enum` subcommand, otherwise the live scan.
-int main(int argc, char **argv) {
-    if (argc >= 2 && strcmp(argv[1], "enum") == 0) {
-        return cmd_enum(argc - 1, argv + 1);
+// Hex digit value, or -1.
+static int hexval(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+}
+
+// Parse a 16-bit number (accepts 0x-prefixed). Returns 0 or -1.
+static int parse_u16(const char *s, uint16_t *out) {
+    char *end;
+    long v = strtol(s, &end, 0);
+    if (*end != '\0' || v < 0 || v > 0xffff) return -1;
+    *out = (uint16_t)v;
+    return 0;
+}
+
+// Parse a hex string (optional ':'/' ' separators) into bytes. Returns len or -1.
+static ssize_t parse_hex(const char *s, uint8_t *out, size_t cap) {
+    size_t n = 0;
+    while (*s) {
+        if (*s == ':' || *s == ' ') { s++; continue; }
+        int hi = hexval(*s++);
+        int lo = (*s) ? hexval(*s++) : -1;
+        if (hi < 0 || lo < 0 || n >= cap) return -1;
+        out[n++] = (uint8_t)((hi << 4) | lo);
     }
+    return (ssize_t)n;
+}
+
+// Shared option/positional parse for read/write: address + handle (+ value).
+static int connect_target(int argc, char **argv, uint8_t addr[6],
+                          uint8_t *atype, int *pos) {
+    *atype = BLEURP_BDADDR_LE_PUBLIC;
+    int opt;
+    while ((opt = getopt(argc, argv, "t:h")) != -1) {
+        if (opt == 't') {
+            *atype = (strcmp(optarg, "random") == 0) ? BLEURP_BDADDR_LE_RANDOM
+                                                      : BLEURP_BDADDR_LE_PUBLIC;
+        } else {
+            return -1;
+        }
+    }
+    if (optind >= argc || parse_addr(argv[optind], addr) < 0) return -1;
+    *pos = optind + 1;
+    return 0;
+}
+
+// read subcommand: read a characteristic/descriptor value by handle.
+static int cmd_read(int argc, char **argv) {
+    uint8_t addr[6], atype;
+    int pos;
+    if (connect_target(argc, argv, addr, &atype, &pos) < 0 || pos >= argc) {
+        fprintf(stderr, "Usage: bleurp read <ADDR> <handle> [-t public|random]\n");
+        return 2;
+    }
+    uint16_t handle;
+    if (parse_u16(argv[pos], &handle) < 0) {
+        fprintf(stderr, "invalid handle: %s\n", argv[pos]);
+        return 2;
+    }
+
+    fprintf(stderr, "Authorized targets only. Connecting to %s ...\n", argv[optind]);
+    int fd = bleurp_l2_connect(addr, atype);
+    if (fd < 0) { perror("connect"); return 1; }
+    (void)gatt_exchange_mtu(fd, 517, NULL);
+
+    uint8_t buf[512];
+    size_t len = 0;
+    uint8_t err = 0;
+    if (gatt_read(fd, handle, buf, sizeof buf, &len, &err) < 0) {
+        if (err) fprintf(stderr, "read denied (ATT error 0x%02x)\n", err);
+        else perror("read");
+        bleurp_l2_close(fd);
+        return 1;
+    }
+    printf("handle 0x%04X = %zu byte(s):\n  hex:", handle, len);
+    for (size_t i = 0; i < len; i++) printf(" %02x", buf[i]);
+    printf("\n  txt: ");
+    for (size_t i = 0; i < len; i++) putchar((buf[i] >= 32 && buf[i] < 127) ? buf[i] : '.');
+    printf("\n");
+    bleurp_l2_close(fd);
+    return 0;
+}
+
+// write subcommand: write bytes to a characteristic by handle.
+static int cmd_write(int argc, char **argv) {
+    uint8_t addr[6], atype;
+    int pos;
+    if (connect_target(argc, argv, addr, &atype, &pos) < 0 || pos + 1 >= argc) {
+        fprintf(stderr, "Usage: bleurp write <ADDR> <handle> <hexbytes> [-t public|random]\n");
+        return 2;
+    }
+    uint16_t handle;
+    if (parse_u16(argv[pos], &handle) < 0) {
+        fprintf(stderr, "invalid handle: %s\n", argv[pos]);
+        return 2;
+    }
+    uint8_t value[512];
+    ssize_t vlen = parse_hex(argv[pos + 1], value, sizeof value);
+    if (vlen < 0) {
+        fprintf(stderr, "invalid hex value: %s\n", argv[pos + 1]);
+        return 2;
+    }
+
+    fprintf(stderr, "Authorized targets only. Writing %zd byte(s) to handle 0x%04X ...\n",
+            (ssize_t)vlen, handle);
+    int fd = bleurp_l2_connect(addr, atype);
+    if (fd < 0) { perror("connect"); return 1; }
+    (void)gatt_exchange_mtu(fd, 517, NULL);
+
+    uint8_t err = 0;
+    if (gatt_write(fd, handle, value, (size_t)vlen, &err) < 0) {
+        if (err) fprintf(stderr, "write denied (ATT error 0x%02x)\n", err);
+        else perror("write");
+        bleurp_l2_close(fd);
+        return 1;
+    }
+    printf("write ok (handle 0x%04X)\n", handle);
+    bleurp_l2_close(fd);
+    return 0;
+}
+
+// Dispatch: enum/read/write subcommands, otherwise the live scan.
+int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "enum") == 0)  return cmd_enum(argc - 1, argv + 1);
+    if (argc >= 2 && strcmp(argv[1], "read") == 0)  return cmd_read(argc - 1, argv + 1);
+    if (argc >= 2 && strcmp(argv[1], "write") == 0) return cmd_write(argc - 1, argv + 1);
     return cmd_scan(argc, argv);
 }
