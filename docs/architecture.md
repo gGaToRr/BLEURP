@@ -18,9 +18,10 @@ built and tested in isolation (TDD) before it is wired into the tool.
     hci_scan.h                                    (raw mode; kept as advanced)
     mgmt.c       kernel mgmt: socket, packets, controller info [DONE, tested]
     mgmt.h       (primary discovery path: clean, coexists with bluetoothd)
-    (next) mgmt: start/stop discovery + Device Found (#17)
-    (next) ad_parse.c  decode advertising data (name, RSSI, UUIDs)
-    (next) main.c      CLI + live device table
+    ad_parse.c   decode AD (name, UUIDs, company), best label [DONE, tested]
+    ad_parse.h
+    (next) dev_table.c merge Device Found, dedup, keep best name (#6)
+    (next) ui.c + main.c  wifite-style live table (#8) + CLI (#7)
   tests/
     test.h            tiny assertion framework
     test_hci_cmd.c    unit tests for hci_cmd               [DONE]
