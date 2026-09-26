@@ -21,6 +21,8 @@
 
 #include "ad_parse.h"
 #include "dev_table.h"
+#include "gatt.h"
+#include "l2cap.h"
 #include "mgmt.h"
 #include "ui.h"
 
@@ -57,15 +59,17 @@ static void on_device(const struct mgmt_device *d, void *user) {
                      name, time(NULL));
 }
 
-// Print usage.
+// Print usage for the scan command / top level.
 static void usage(const char *prog) {
     fprintf(stderr,
-            "Usage: %s [-i index] [-t seconds] [-h]\n"
+            "Usage:\n"
+            "  %s [-i index] [-t seconds]        live BLE scan (default)\n"
+            "  %s enum <ADDR> [-t public|random] connect and dump GATT\n"
             "  -i index    HCI controller index (default 0 = hci0)\n"
             "  -t seconds  scan duration; 0 = until Ctrl-C (default 0)\n"
             "  -h          show this help\n"
-            "Only scan devices you own or are authorized to test.\n",
-            prog);
+            "Only use on devices you own or are authorized to test.\n",
+            prog, prog);
 }
 
 // Write an mgmt packet; returns 0 if the write did not error, -1 otherwise.
@@ -76,7 +80,7 @@ static int send_pkt(int fd, const uint8_t *pkt, ssize_t n) {
     return (write(fd, pkt, (size_t)n) < 0) ? -1 : 0;
 }
 
-int main(int argc, char **argv) {
+static int cmd_scan(int argc, char **argv) {
     int index = 0;
     long duration = 0;
 
@@ -189,4 +193,119 @@ int main(int argc, char **argv) {
     dev_table_free(&table);
     mgmt_close(fd);
     return 0;
+}
+
+// Parse "AA:BB:CC:DD:EE:FF" into HCI byte order (LSB first). Returns 0 or -1.
+static int parse_addr(const char *s, uint8_t out[6]) {
+    unsigned v[6];
+    if (sscanf(s, "%x:%x:%x:%x:%x:%x", &v[0], &v[1], &v[2], &v[3], &v[4], &v[5]) != 6) {
+        return -1;
+    }
+    for (int i = 0; i < 6; i++) {
+        if (v[i] > 0xff) return -1;
+        out[5 - i] = (uint8_t)v[i]; // typed MSB-first -> stored LSB-first
+    }
+    return 0;
+}
+
+// Format characteristic properties as short flags, e.g. "R W N".
+static void props_str(uint8_t p, char *buf, size_t n) {
+    buf[0] = '\0';
+    struct { uint8_t bit; const char *s; } m[] = {
+        {GATT_PROP_READ, "R"}, {GATT_PROP_WRITE, "W"},
+        {GATT_PROP_WRITE_NR, "w"}, {GATT_PROP_NOTIFY, "N"},
+        {GATT_PROP_INDICATE, "I"},
+    };
+    for (size_t i = 0; i < sizeof m / sizeof m[0]; i++) {
+        if (p & m[i].bit) {
+            if (buf[0] != '\0') strncat(buf, " ", n - strlen(buf) - 1);
+            strncat(buf, m[i].s, n - strlen(buf) - 1);
+        }
+    }
+}
+
+// enum subcommand: connect to a device and print its GATT tree.
+static int cmd_enum(int argc, char **argv) {
+    uint8_t atype = BLEURP_BDADDR_LE_PUBLIC;
+    int opt;
+    while ((opt = getopt(argc, argv, "t:h")) != -1) {
+        switch (opt) {
+        case 't':
+            atype = (strcmp(optarg, "random") == 0) ? BLEURP_BDADDR_LE_RANDOM
+                                                     : BLEURP_BDADDR_LE_PUBLIC;
+            break;
+        case 'h':
+        default:
+            fprintf(stderr, "Usage: bleurp enum <ADDR> [-t public|random]\n");
+            return (opt == 'h') ? 0 : 2;
+        }
+    }
+    if (optind >= argc) {
+        fprintf(stderr, "Usage: bleurp enum <ADDR> [-t public|random]\n");
+        return 2;
+    }
+
+    const char *addr_str = argv[optind];
+    uint8_t addr[6];
+    if (parse_addr(addr_str, addr) < 0) {
+        fprintf(stderr, "invalid address: %s\n", addr_str);
+        return 2;
+    }
+
+    fprintf(stderr, "Authorized targets only. Connecting to %s ...\n", addr_str);
+    int fd = bleurp_l2_connect(addr, atype);
+    if (fd < 0) {
+        perror("connect");
+        return 1;
+    }
+
+    uint16_t mtu = 0;
+    (void)gatt_exchange_mtu(fd, 517, &mtu);
+    printf("Connected to %s (ATT MTU=%u)\n\n", addr_str, mtu ? mtu : 23);
+
+    struct gatt_service svcs[64];
+    size_t nsvc = 0;
+    if (gatt_discover_services(fd, svcs, 64, &nsvc) < 0) {
+        perror("discover services");
+        bleurp_l2_close(fd);
+        return 1;
+    }
+
+    size_t shown = nsvc < 64 ? nsvc : 64;
+    printf("GATT tree (%zu service(s)):\n", nsvc);
+    for (size_t i = 0; i < shown; i++) {
+        const struct gatt_service *s = &svcs[i];
+        if (s->uuid_is_128) {
+            printf("[SVC] 0x%04X-0x%04X  128-bit UUID\n", s->start_handle, s->end_handle);
+        } else {
+            const char *name = ad_service_name(s->uuid16);
+            printf("[SVC] 0x%04X-0x%04X  0x%04X%s%s\n", s->start_handle,
+                   s->end_handle, s->uuid16, name ? "  " : "", name ? name : "");
+        }
+        struct gatt_char chs[64];
+        size_t nch = 0;
+        gatt_discover_characteristics(fd, s->start_handle, s->end_handle, chs, 64, &nch);
+        size_t cshown = nch < 64 ? nch : 64;
+        for (size_t j = 0; j < cshown; j++) {
+            const struct gatt_char *c = &chs[j];
+            char pr[16];
+            props_str(c->properties, pr, sizeof pr);
+            if (c->uuid_is_128) {
+                printf("   [CHR] val 0x%04X  [%s]  128-bit UUID\n", c->value_handle, pr);
+            } else {
+                printf("   [CHR] val 0x%04X  [%s]  0x%04X\n", c->value_handle, pr, c->uuid16);
+            }
+        }
+    }
+
+    bleurp_l2_close(fd);
+    return 0;
+}
+
+// Dispatch: `enum` subcommand, otherwise the live scan.
+int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "enum") == 0) {
+        return cmd_enum(argc - 1, argv + 1);
+    }
+    return cmd_scan(argc, argv);
 }
