@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "ad_parse.h"
+#include "addr_priv.h"
 #include "dev_table.h"
 #include "gatt.h"
 #include "l2cap.h"
@@ -86,8 +87,18 @@ static void on_device(const struct mgmt_device *d, void *user) {
     const char *name = (ok && info.has_name) ? info.name : "";
     struct dev_entry *e = dev_table_upsert(c->table, d->address, d->addr_type,
                                            d->rssi, name, time(NULL));
-    if (e && ok) {
-        make_details(&info, e->details, sizeof e->details);
+    if (e) {
+        // Lead the verbose line with the address privacy posture, flagging a
+        // stable (trackable) address as a recon/privacy finding, then append
+        // the advertising summary when we could parse it.
+        addr_privacy_t p = addr_privacy(e->address, e->addr_type);
+        char ad[96];
+        ad[0] = '\0';
+        if (ok) make_details(&info, ad, sizeof ad);
+        snprintf(e->details, sizeof e->details, "priv=%s%s%s%s",
+                 addr_privacy_label(p),
+                 addr_is_trackable(p) ? " [trackable]" : "",
+                 ad[0] ? " " : "", ad);
     }
 }
 
