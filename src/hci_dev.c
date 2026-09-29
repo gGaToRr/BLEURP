@@ -12,6 +12,7 @@
 #include "hci_dev.h"
 
 #include <errno.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -59,4 +60,16 @@ int bleurp_hci_open(int dev_id, unsigned short channel) {
 // Close an HCI socket. See hci_dev.h for the contract.
 int bleurp_hci_close(int fd) {
     return close(fd);
+}
+
+// Detect the first available local HCI device (0..15). Returns index (e.g. 0 or 1).
+int bleurp_hci_find_default_dev(void) {
+    for (int i = 0; i < BLEURP_HCI_MAX_DEV; i++) {
+        char path[64];
+        snprintf(path, sizeof(path), "/sys/class/bluetooth/hci%d", i);
+        if (access(path, F_OK) == 0) {
+            return i;
+        }
+    }
+    return 0;
 }

@@ -1,0 +1,9 @@
+REM macOS: Spotlight > Terminal, system info
+DELAY 1000
+GUI SPACE
+DELAY 800
+STRING Terminal
+ENTER
+DELAY 1500
+STRING sw_vers; id
+ENTER

@@ -27,6 +27,7 @@
 #define MGMT_OP_SET_POWERED          0x0005
 #define MGMT_OP_START_DISCOVERY      0x0023
 #define MGMT_OP_STOP_DISCOVERY       0x0024
+#define MGMT_OP_SET_STATIC_ADDRESS   0x002c
 
 // mgmt event codes.
 #define MGMT_EV_CMD_COMPLETE 0x0001
@@ -125,6 +126,14 @@ ssize_t mgmt_build_start_discovery(uint8_t *buf, size_t buf_len,
 // Returns packet length or -1.
 ssize_t mgmt_build_stop_discovery(uint8_t *buf, size_t buf_len,
                                   uint16_t index, uint8_t addr_type_mask);
+
+// Build a Set Static Address command: sets the controller's LE static
+// random address (used by the MAC Spoofer menu option). This only affects
+// the *random* address; the burned-in "public" address is chipset/vendor
+// specific and is not covered here. `addr` is in HCI byte order. Returns
+// packet length or -1 with errno EINVAL if addr is NULL.
+ssize_t mgmt_build_set_static_address(uint8_t *buf, size_t buf_len,
+                                      uint16_t index, const uint8_t addr[6]);
 
 // Parse a Device Found event into `out`. `evt` points at the start of the
 // mgmt event (header included). Returns 0 on success, or -1 with errno set

@@ -49,4 +49,7 @@ int bleurp_hci_open(int dev_id, unsigned short channel);
 // Close a socket returned by bleurp_hci_open. Returns 0 or -1 with errno.
 int bleurp_hci_close(int fd);
 
+// Detect the first available local HCI device (0..15). Returns index (e.g. 0 or 1).
+int bleurp_hci_find_default_dev(void);
+
 #endif // BLEURP_HCI_DEV_H

@@ -46,11 +46,20 @@ static void test_connect_null(void) {
     CHECK(errno == EINVAL);
 }
 
+// The bounded-timeout variant rejects a NULL address the same way, before
+// ever touching a socket or a timeout.
+static void test_connect_timeout_null(void) {
+    errno = 0;
+    CHECK(bleurp_l2_connect_timeout(NULL, BLEURP_BDADDR_LE_PUBLIC, 1000) == -1);
+    CHECK(errno == EINVAL);
+}
+
 // Entry point: run every test case and report the aggregate result.
 int main(void) {
     printf("test_l2cap\n");
     test_fill_ok();
     test_fill_null();
     test_connect_null();
+    test_connect_timeout_null();
     return TEST_REPORT();
 }
