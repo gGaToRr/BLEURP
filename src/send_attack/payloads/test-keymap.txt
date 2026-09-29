@@ -1,0 +1,10 @@
+REM Validate the keymap after modifying keymap.c
+DELAY 500
+STRING abcdefghijklmnopqrstuvwxyz
+ENTER
+STRING ABCDEFGHIJKLMNOPQRSTUVWXYZ
+ENTER
+STRING 0123456789
+ENTER
+STRING !@#$%^&*()_+-=[]{};',.\/:"<>?~`
+ENTER

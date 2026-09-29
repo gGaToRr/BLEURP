@@ -19,6 +19,17 @@
 // ANSI reset sequence for callers that colour their own output.
 #define UI_RESET "\033[0m"
 
+// Shared theme colours, public so the interactive menu (main.c) and the
+// scan/fingerprint tables (ui.c) share one consistent look.
+#define UI_GREEN  "\033[32m"
+#define UI_YELLOW "\033[33m"
+#define UI_RED    "\033[31m"
+#define UI_CYAN   "\033[36m"
+#define UI_PINK   "\033[38;5;213m"
+#define UI_PURPLE "\033[38;5;141m"
+#define UI_ORANGE "\033[38;5;208m" // 256-colour orange, used as an alert accent
+#define UI_BOLD   "\033[1m"
+
 // ANSI colour escape for an RSSI value, by signal band (green/yellow/red).
 const char *ui_rssi_color(int8_t rssi);
 

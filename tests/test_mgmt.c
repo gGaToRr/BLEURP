@@ -43,6 +43,29 @@ static void test_build_start_discovery(void) {
     for (size_t i = 0; i < sizeof want; i++) CHECK(buf[i] == want[i]);
 }
 
+// Set Static Address on controller 0: opcode + index + the 6-byte address.
+static void test_build_set_static_address(void) {
+    uint8_t buf[16];
+    const uint8_t addr[6] = {0x11, 0x22, 0x33, 0x44, 0x55, 0xC6};
+    ssize_t n = mgmt_build_set_static_address(buf, sizeof buf, 0, addr);
+    const uint8_t want[] = {
+        0x2c, 0x00, // opcode 0x002c
+        0x00, 0x00, // index 0
+        0x06, 0x00, // param length 6
+        0x11, 0x22, 0x33, 0x44, 0x55, 0xC6,
+    };
+    CHECK(n == (ssize_t)sizeof want);
+    for (size_t i = 0; i < sizeof want; i++) CHECK(buf[i] == want[i]);
+}
+
+// A NULL address is rejected with EINVAL.
+static void test_build_set_static_address_null(void) {
+    uint8_t buf[16];
+    errno = 0;
+    CHECK(mgmt_build_set_static_address(buf, sizeof buf, 0, NULL) == -1);
+    CHECK(errno == EINVAL);
+}
+
 // The controller index is encoded little-endian.
 static void test_build_index_le(void) {
     uint8_t buf[16];
@@ -319,6 +342,8 @@ int main(void) {
     printf("test_mgmt\n");
     test_build_no_params();
     test_build_start_discovery();
+    test_build_set_static_address();
+    test_build_set_static_address_null();
     test_build_index_le();
     test_build_too_small();
     test_build_null_params();

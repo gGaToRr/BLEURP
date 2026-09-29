@@ -1,0 +1,9 @@
+REM Windows: Win+R, cmd, read-only info commands
+DELAY 1000
+GUI r
+DELAY 800
+STRING cmd
+ENTER
+DELAY 1500
+STRING whoami /priv & ipconfig /all
+ENTER

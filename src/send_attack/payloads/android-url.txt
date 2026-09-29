@@ -1,0 +1,5 @@
+REM Android: type a URL in the focused field, then open it
+DELAY 1000
+STRING https://example.com
+DELAY 300
+ENTER

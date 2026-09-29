@@ -28,6 +28,8 @@ struct dev_entry {
     time_t   first_seen;
     time_t   last_seen;
     char     details[128]; // caller-populated verbose summary (optional)
+    char     category[12]; // fingerprint category ("phone", "input"...), "" if none
+    int      exposure;     // fingerprint exposure score 0..100
 };
 
 // Growable set of tracked devices.

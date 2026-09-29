@@ -103,6 +103,17 @@ ssize_t mgmt_build_stop_discovery(uint8_t *buf, size_t buf_len,
                               index, p, sizeof p);
 }
 
+// Build a Set Static Address command. See mgmt.h for the contract.
+ssize_t mgmt_build_set_static_address(uint8_t *buf, size_t buf_len,
+                                      uint16_t index, const uint8_t addr[6]) {
+    if (addr == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+    return mgmt_build_command(buf, buf_len, MGMT_OP_SET_STATIC_ADDRESS,
+                              index, addr, 6);
+}
+
 // Parse a Device Found event. See mgmt.h for the contract.
 int mgmt_parse_device_found(const uint8_t *evt, size_t len,
                             struct mgmt_device *out) {

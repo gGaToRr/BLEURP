@@ -29,6 +29,12 @@ secrets/
 credentials/
 *.secret
 
+# --- Temporary & scratch files ---
+scratch/
+*.bak
+*.tmp
+*.patch
+
 # --- OS / editor junk ---
 .DS_Store
 Thumbs.db

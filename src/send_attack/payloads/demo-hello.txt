@@ -1,0 +1,4 @@
+REM Minimal smoke test: verify the HID channel works
+DELAY 500
+STRING Hello from BLEURP HID injection
+ENTER
