@@ -5,8 +5,8 @@
 //  toggle) and the two packet shapes every attack/probe engine sends over
 //  it (raw HCI command, one-shot ACL/L2CAP PDU). Before this module
 //  existed, src/smp/smp_native.c, src/blerp/blerp_attack.c and
-//  src/peripheral_native.c each carried their own copy of this ~40-line
-//  block.
+//  src/hid/peripheral_native.c each carried their own copy of this
+//  ~40-line block.
 //  dernière modification : 2026-10-10
 //  auteur: GitHub/@gGaToRr
 // ========================================

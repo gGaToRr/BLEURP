@@ -1433,7 +1433,7 @@ static long ask_interface(long default_val) {
 // Baked in by the Makefile as an absolute path; the relative fallback keeps
 // this file buildable on its own.
 #ifndef BLEURP_PAYLOADS_DIR
-#define BLEURP_PAYLOADS_DIR "src/send_attack/payloads"
+#define BLEURP_PAYLOADS_DIR "src/hid/send_attack/payloads"
 #endif
 
 #define HID_PAYLOAD_MAX 32

@@ -10,7 +10,7 @@
 CC      := gcc
 # -pthread: the BLERP double-channel MitM (src/smp_native/blerp_attack.c) runs
 # the PI and CI sub-attacks concurrently on two adapters.
-CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -pthread -Isrc -Isrc/send_attack -Isrc/wire -Isrc/cli -Isrc/recon -Isrc/gatt -Isrc/mgmt -Isrc/smp -Isrc/blerp -Itests
+CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -pthread -Isrc -Isrc/hid -Isrc/hid/send_attack -Isrc/wire -Isrc/cli -Isrc/recon -Isrc/gatt -Isrc/mgmt -Isrc/smp -Isrc/blerp -Itests
 LDLIBS  := -lbluetooth -lm -lcrypto -pthread $(shell pkg-config --libs dbus-1)
 CFLAGS  += $(shell pkg-config --cflags dbus-1)
 # Absolute path to the bundled FIGlet font used for the menu banner (see
@@ -19,12 +19,12 @@ CFLAGS  += $(shell pkg-config --cflags dbus-1)
 CFLAGS  += -DBLEURP_FONT_PATH='"$(abspath assets/fonts/slant.flf)"'
 # Same idea for the bundled DuckyScript payloads, listed by the menu's HID
 # wizard (see cmd_menu in src/main.c).
-CFLAGS  += -DBLEURP_PAYLOADS_DIR='"$(abspath src/send_attack/payloads)"'
+CFLAGS  += -DBLEURP_PAYLOADS_DIR='"$(abspath src/hid/send_attack/payloads)"'
 BUILD   := build
 BIN     := $(BUILD)/bleurp
 
 # Library sources (excludes main.c so tests can link freely).
-SRC := $(filter-out src/main.c,$(wildcard src/*.c) $(wildcard src/send_attack/*.c) $(wildcard src/wire/*.c) $(wildcard src/cli/*.c) $(wildcard src/recon/*.c) $(wildcard src/gatt/*.c) $(wildcard src/mgmt/*.c) $(wildcard src/smp/*.c) $(wildcard src/blerp/*.c))
+SRC := $(filter-out src/main.c,$(wildcard src/*.c) $(wildcard src/hid/*.c) $(wildcard src/hid/send_attack/*.c) $(wildcard src/wire/*.c) $(wildcard src/cli/*.c) $(wildcard src/recon/*.c) $(wildcard src/gatt/*.c) $(wildcard src/mgmt/*.c) $(wildcard src/smp/*.c) $(wildcard src/blerp/*.c))
 OBJ := $(SRC:src/%.c=$(BUILD)/%.o)
 
 # One test binary per tests/test_*.c file.

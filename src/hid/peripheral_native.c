@@ -1205,7 +1205,17 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                         // Commande Ducky: /d <fichier>
                         const char *pfile = line + 2;
                         while (*pfile == ' ') pfile++;
-                        if (*pfile == '\0') pfile = "src/send_attack/payloads/hello.ducky";
+                        char default_payload[256];
+                        if (*pfile == '\0') {
+#ifdef BLEURP_PAYLOADS_DIR
+                            snprintf(default_payload, sizeof default_payload,
+                                    "%s/hello.ducky", BLEURP_PAYLOADS_DIR);
+#else
+                            snprintf(default_payload, sizeof default_payload,
+                                    "src/hid/send_attack/payloads/hello.ducky");
+#endif
+                            pfile = default_payload;
+                        }
                         FILE *fp = fopen(pfile, "r");
                         if (fp) {
                             printf("  [*] Exécution du DuckyScript '%s' vers le smartphone...\n", pfile);
