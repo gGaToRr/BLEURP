@@ -10,8 +10,8 @@
 
 #include "hci_user_channel.h"
 #include "hci_wire.h"
-#include "../hci_cmd.h"
-#include "../mgmt.h"
+#include "hci_cmd.h"
+#include "mgmt.h"
 
 #include <errno.h>
 #include <poll.h>

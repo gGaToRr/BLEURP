@@ -12,7 +12,7 @@
 #include "smp_native.h"
 #include "secreq.h"
 #include "../ui.h"
-#include "../mgmt.h"
+#include "mgmt.h"
 #include "../smp.h" // SMP_CODE_* opcodes
 #include "../wire/hci_wire.h"
 #include "../wire/hci_user_channel.h"
