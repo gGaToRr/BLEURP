@@ -16,6 +16,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "repair.h" // enum blerp_verdict
+
 // Parse "AA:BB:CC:DD:EE:FF" into HCI byte order (LSB first). Returns 0 or -1.
 int parse_addr(const char *s, uint8_t out[6]);
 
@@ -38,5 +40,11 @@ long ask_number(const char *label, const char *desc, long default_val);
 // the "hciN" form ("hci1"). Falls back to the default on anything else (no
 // silent drop back to hci0 on a typo).
 long ask_interface(long default_val);
+
+// Print one machine-readable BLERP vulnerability verdict line, read by
+// scripts/audit_ble.sh to build the V1-V6 matrix. Format is fixed:
+// "[VERDICT] V<n> : <OUI|NON|NON CONCLUANT> - <detail>". Shared by the
+// `repair` and `secreq` subcommands.
+void print_verdict(const char *id, enum blerp_verdict v, const char *detail);
 
 #endif // BLEURP_CMD_COMMON_H

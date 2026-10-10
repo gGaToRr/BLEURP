@@ -63,6 +63,10 @@ long ask_number(const char *label, const char *desc, long default_val) {
     return v;
 }
 
+void print_verdict(const char *id, enum blerp_verdict v, const char *detail) {
+    printf("[VERDICT] %s : %s - %s\n", id, blerp_verdict_label(v), detail);
+}
+
 long ask_interface(long default_val) {
     printf("  %sInterface%s  %s(index ou nom, ex. 1 ou hci1 ; %ld = hci%ld)%s [%ld]: ",
            UI_PINK, UI_RESET, UI_PURPLE, default_val, default_val, UI_RESET, default_val);
