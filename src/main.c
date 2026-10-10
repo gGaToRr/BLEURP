@@ -45,6 +45,7 @@
 #include "wire/hci_wire.h"
 #include "cli.h"
 #include "blerp_attack.h"
+#include "blerp_mitm_relay.h"
 
 // How often to re-arm discovery, to keep reports flowing and refresh the
 // view (wifite keeps a continuous scan going and redraws steadily).
@@ -1142,6 +1143,7 @@ static int cmd_blerp(int argc, char **argv) {
                 "  pi [CENTRAL_ADDR]    Peripheral Impersonation (spoof, reject enc V5, downgrade V3/V4/V6)\n"
                 "  ci <PERIPH_ADDR>     Central Impersonation (spoof, inject unauth Pairing Request V2/V4/V6)\n"
                 "  mitm <PERIPH_ADDR>   Double-channel MitM: PI vs Central (-i) + CI vs Peripheral (-j)\n"
+                "  mitm-single <ADDR>   Single-channel MitM: relays SMP, downgrading Pairing Req/Rsp\n"
                 "  audit <TARGET_ADDR>  Complete automated V1-V6 evaluation against target\n"
                 "  finale [--all-test]  Pipeline automatisé Option Finale (scan 15s + re-pairing)\n\n"
                 "Options:\n"
@@ -1173,12 +1175,14 @@ static int cmd_blerp(int argc, char **argv) {
     }
 
     enum blerp_attack_type type;
-    if (strcmp(mode_str, "pi") == 0)         type = BLERP_ATTACK_PI;
-    else if (strcmp(mode_str, "ci") == 0)    type = BLERP_ATTACK_CI;
-    else if (strcmp(mode_str, "mitm") == 0)  type = BLERP_ATTACK_MITM;
-    else if (strcmp(mode_str, "audit") == 0) type = BLERP_ATTACK_AUDIT;
+    bool single_channel = false;
+    if (strcmp(mode_str, "pi") == 0)              type = BLERP_ATTACK_PI;
+    else if (strcmp(mode_str, "ci") == 0)         type = BLERP_ATTACK_CI;
+    else if (strcmp(mode_str, "mitm") == 0)       type = BLERP_ATTACK_MITM;
+    else if (strcmp(mode_str, "mitm-single") == 0) { type = BLERP_ATTACK_MITM; single_channel = true; }
+    else if (strcmp(mode_str, "audit") == 0)      type = BLERP_ATTACK_AUDIT;
     else {
-        fprintf(stderr, "Unknown blerp mode: %s (choose pi, ci, mitm, audit, or finale)\n", mode_str);
+        fprintf(stderr, "Unknown blerp mode: %s (choose pi, ci, mitm, mitm-single, audit, or finale)\n", mode_str);
         return 2;
     }
 
@@ -1311,19 +1315,27 @@ static int cmd_blerp(int argc, char **argv) {
         break;
     case BLERP_ATTACK_MITM:
         if (target_str[0] == '\0') {
-            fprintf(stderr, "Double-channel MitM requires the victim peripheral's address "
-                            "(also used as the PI spoofed identity).\n");
+            fprintf(stderr, "%s MitM requires the victim peripheral's address "
+                            "(also used as the fake-Peripheral spoofed identity).\n",
+                    single_channel ? "Single-channel" : "Double-channel");
             return 2;
         }
         if (cfg.dev_id == cfg.dev_id_sec) {
-            fprintf(stderr, "Double-channel MitM requires two distinct adapters: -i and -j must differ.\n");
+            fprintf(stderr, "%s MitM requires two distinct adapters: -i and -j must differ.\n",
+                    single_channel ? "Single-channel" : "Double-channel");
             return 2;
         }
-        // blerp_run_mitm prints its own double-channel summary (two distinct
-        // PKs, one per victim) instead of the generic single-STK banner
-        // below, which would be misleading here since rep.stk is not
-        // meaningful for this attack (see blerp_run_mitm).
-        rc = blerp_run_mitm(&cfg, &rep);
+        // Both blerp_run_mitm and blerp_run_single_channel_mitm print their
+        // own summary instead of the generic single-STK banner below, which
+        // would be misleading here since rep.stk is not meaningful for
+        // either attack (two independent PKs for double-channel; no key of
+        // Charlie's own at all for single-channel, see blerp_mitm_relay.h).
+        if (single_channel) {
+            struct blerp_relay_report relay_rep;
+            rc = blerp_run_single_channel_mitm(&cfg, &relay_rep);
+        } else {
+            rc = blerp_run_mitm(&cfg, &rep);
+        }
         break;
     case BLERP_ATTACK_AUDIT:
         if (target_str[0] == '\0') {

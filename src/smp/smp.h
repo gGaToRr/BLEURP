@@ -18,12 +18,23 @@
 #include <stdint.h>
 #include <sys/types.h> // ssize_t
 
-// SMP opcodes (Bluetooth Core Specification, Vol 3, Part H) -- the subset
-// needed for the pairing feature-negotiation phase.
-#define SMP_CODE_PAIRING_REQUEST  0x01
-#define SMP_CODE_PAIRING_RESPONSE 0x02
-#define SMP_CODE_PAIRING_FAILED   0x05
-#define SMP_CODE_SECURITY_REQUEST 0x0b
+// SMP opcodes (Bluetooth Core Specification, Vol 3, Part H) -- covers
+// feature negotiation, Phase 2 key exchange (Legacy and LE Secure
+// Connections), and Phase 3 key distribution.
+#define SMP_CODE_PAIRING_REQUEST   0x01
+#define SMP_CODE_PAIRING_RESPONSE  0x02
+#define SMP_CODE_PAIRING_CONFIRM   0x03
+#define SMP_CODE_PAIRING_RANDOM    0x04
+#define SMP_CODE_PAIRING_FAILED    0x05
+#define SMP_CODE_ENCRYPTION_INFO   0x06
+#define SMP_CODE_MASTER_IDENT      0x07
+#define SMP_CODE_IDENTITY_INFO     0x08
+#define SMP_CODE_IDENTITY_ADDR     0x09
+#define SMP_CODE_SIGNING_INFO      0x0a
+#define SMP_CODE_SECURITY_REQUEST  0x0b
+#define SMP_CODE_PUBLIC_KEY        0x0c
+#define SMP_CODE_DHKEY_CHECK       0x0d
+#define SMP_CODE_KEYPRESS_NOTIFY   0x0e
 
 // AuthReq flag bits (least to most significant): 2-bit Bonding_Flags, then
 // MITM, SC, Keypress, CT2, and 2 RFU bits.
