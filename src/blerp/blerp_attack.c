@@ -12,7 +12,7 @@
 #include "blerp_attack.h"
 #include "mgmt.h"
 #include "../ui.h"
-#include "../smp.h" // SMP_CODE_* opcodes
+#include "smp.h" // SMP_CODE_* opcodes
 #include "../wire/hci_wire.h"
 #include "../wire/hci_user_channel.h"
 

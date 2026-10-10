@@ -4,7 +4,7 @@
 //  socket lifecycle (open/close, with the mandatory BlueZ mgmt power
 //  toggle) and the two packet shapes every attack/probe engine sends over
 //  it (raw HCI command, one-shot ACL/L2CAP PDU). Before this module
-//  existed, src/smp_native/smp_native.c, src/smp_native/blerp_attack.c and
+//  existed, src/smp/smp_native.c, src/blerp/blerp_attack.c and
 //  src/peripheral_native.c each carried their own copy of this ~40-line
 //  block.
 //  dernière modification : 2026-10-10
