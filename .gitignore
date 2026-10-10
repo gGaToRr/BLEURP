@@ -43,3 +43,5 @@ Thumbs.db
 *.swo
 .vscode/
 .idea/
+audit_*/
+autotry_*/

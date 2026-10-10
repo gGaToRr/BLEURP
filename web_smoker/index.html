@@ -1,0 +1,2824 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HYPERSMOKER 20000 — CERN 14TeV + Camion V8 + Fusée + Cigare 2000°C + Enfant & Rayons-X</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@500;600;700;800&family=Bangers&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05070c;
+            --panel: rgba(12, 16, 26, 0.94);
+            --border: rgba(255, 90, 0, 0.45);
+            --ember: #ff4500;
+            --ember-bright: #ffbe33;
+            --accent: #ff6a00;
+            --neon-blue: #00d2ff;
+            --neon-green: #00ff88;
+            --neon-purple: #c084fc;
+            --cern-cyan: #38bdf8;
+            --rocket-flame: #ff2200;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% 15%, #181d33 0%, var(--bg) 80%);
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* HEADER */
+        header {
+            width: 100%;
+            padding: 9px 20px;
+            background: linear-gradient(180deg, rgba(255, 80, 0, 0.22) 0%, rgba(5, 7, 12, 0.85) 100%);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(8px);
+            z-index: 50;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .brand-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 0 0 15px rgba(255, 106, 0, 0.8);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .badge-cern {
+            background: linear-gradient(135deg, #0284c7, #9333ea);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 2px 7px;
+            border-radius: 6px;
+            box-shadow: 0 0 12px rgba(2, 132, 199, 0.8);
+        }
+
+        .badge-rocket {
+            background: linear-gradient(135deg, #7c3aed, #ef4444);
+            color: #fff;
+            font-size: 10px;
+            font-weight: 900;
+            padding: 2px 7px;
+            border-radius: 6px;
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.8);
+        }
+
+        .header-status {
+            display: flex;
+            gap: 7px;
+            font-size: 11px;
+            font-family: 'Orbitron', monospace;
+            flex-wrap: wrap;
+        }
+
+        .status-pill {
+            padding: 4px 9px;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--ember-bright);
+            box-shadow: 0 0 10px var(--ember);
+            animation: pulse 0.6s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; transform: scale(0.85); }
+            100% { opacity: 1; transform: scale(1.3); }
+        }
+
+        /* MAIN WORKSPACE */
+        .workspace {
+            width: 100%;
+            max-width: 1680px;
+            padding: 10px 12px;
+            display: grid;
+            grid-template-columns: 340px 1fr 400px;
+            gap: 12px;
+            flex: 1;
+            z-index: 5;
+        }
+
+        @media (max-width: 1280px) {
+            .workspace { grid-template-columns: 300px 1fr 340px; }
+        }
+
+        /* PANELS */
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            max-height: calc(100vh - 75px);
+            overflow-y: auto;
+        }
+        .panel::-webkit-scrollbar { width: 5px; }
+        .panel::-webkit-scrollbar-thumb {
+            background: rgba(255, 106, 0, 0.4);
+            border-radius: 4px;
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent);
+            border-bottom: 1px dashed rgba(255, 106, 0, 0.25);
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* STAGE CONTAINER */
+        .stage-container {
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, rgba(25, 35, 65, 0.75) 0%, rgba(4, 6, 12, 0.98) 85%);
+            border: 1px solid rgba(255, 106, 0, 0.45);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.95);
+            min-height: 680px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stage-container.rumble {
+            animation: stageRumble 0.05s infinite alternate;
+        }
+        @keyframes stageRumble {
+            0% { transform: translate(-3px, 2px); }
+            50% { transform: translate(3px, -2px); }
+            100% { transform: translate(-2px, -3px); }
+        }
+
+        /* CANVASES */
+        canvas#smokeCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 8;
+        }
+
+        canvas#tarCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 28;
+        }
+
+        /* FLASH EFFECTS */
+        #defibFlash {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(0,210,255,0.85) 50%, rgba(0,0,0,0) 100%);
+            z-index: 40;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.05s ease-out;
+        }
+        #defibFlash.flashing { opacity: 1; }
+
+        /* QUICK ACTIONS BAR ON STAGE */
+        .stage-hud-bar {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 25;
+            display: flex;
+            gap: 6px;
+            background: rgba(10, 14, 24, 0.85);
+            padding: 5px 10px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 106, 0, 0.4);
+            backdrop-filter: blur(8px);
+        }
+
+        .hud-btn {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 4px 9px;
+            font-size: 11px;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .hud-btn:hover {
+            border-color: var(--accent);
+            background: rgba(255, 106, 0, 0.3);
+            transform: translateY(-1px);
+        }
+        .hud-btn.active {
+            background: linear-gradient(135deg, #ff4500, #ff0055);
+            border-color: #ffbe33;
+            box-shadow: 0 0 12px rgba(255, 69, 0, 0.8);
+        }
+
+        /* COMIC BUBBLE SMOKER */
+        .comic-bubble {
+            position: absolute;
+            bottom: 380px;
+            left: 45%;
+            background: #fff;
+            color: #000;
+            font-family: 'Bangers', cursive;
+            font-size: 24px;
+            letter-spacing: 1px;
+            padding: 7px 16px;
+            border-radius: 18px;
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0px rgba(0,0,0,0.85);
+            transform: rotate(4deg) scale(0);
+            transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 30;
+            pointer-events: none;
+        }
+        .comic-bubble.active { transform: rotate(4deg) scale(1); }
+
+        /* COMIC BUBBLE KID ("NON ARRÊTE !") */
+        .kid-bubble {
+            position: absolute;
+            bottom: 330px;
+            right: 40px;
+            background: #ffeb3b;
+            color: #b71c1c;
+            font-family: 'Bangers', cursive;
+            font-size: 26px;
+            letter-spacing: 1.5px;
+            padding: 8px 18px;
+            border-radius: 20px;
+            border: 4px solid #b71c1c;
+            box-shadow: 5px 5px 0px rgba(0,0,0,0.9);
+            transform: rotate(-6deg) scale(0);
+            transition: transform 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 32;
+            pointer-events: none;
+            max-width: 250px;
+            text-align: center;
+            line-height: 1.1;
+        }
+        .kid-bubble.active { transform: rotate(-6deg) scale(1); }
+
+        /* 1. CERN ACCELERATOR (TOP-LEFT) */
+        .cern-unit {
+            position: absolute;
+            top: 45px;
+            left: 15px;
+            width: 210px;
+            height: 175px;
+            z-index: 4;
+            filter: drop-shadow(0 10px 25px rgba(2, 132, 199, 0.6));
+        }
+
+        .cern-frame {
+            background: rgba(10, 20, 35, 0.92);
+            border: 2px solid #0284c7;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: inset 0 0 20px rgba(0, 210, 255, 0.2);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .cern-title-row {
+            font-family: 'Orbitron', monospace;
+            font-size: 9px;
+            font-weight: 800;
+            color: #38bdf8;
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        .cern-beam-ring {
+            width: 130px;
+            height: 110px;
+            position: relative;
+        }
+
+        .beam-ring-svg {
+            animation: ringSpin 3s linear infinite;
+        }
+        @keyframes ringSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 2. LE CAMION DIESEL V8 (TOP-RIGHT) */
+        .truck-topright {
+            position: absolute;
+            top: 45px;
+            right: 15px;
+            width: 200px;
+            height: 155px;
+            z-index: 4;
+            filter: drop-shadow(0 10px 25px rgba(0,0,0,0.85));
+            animation: truckVibrate 0.1s infinite alternate;
+        }
+        @keyframes truckVibrate {
+            0% { transform: translateY(0px) rotate(0.2deg); }
+            100% { transform: translateY(1.5px) rotate(-0.2deg); }
+        }
+
+        /* 3. LA FUSÉE SPATIALE (TOP-CENTER) */
+        .rocket-unit {
+            position: absolute;
+            top: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 125px;
+            height: 190px;
+            z-index: 4;
+            filter: drop-shadow(0 10px 30px rgba(255, 34, 0, 0.7));
+            transition: all 0.2s;
+        }
+        .rocket-unit.firing {
+            animation: rocketShake 0.05s infinite alternate;
+        }
+        @keyframes rocketShake {
+            0% { transform: translateX(-50%) translateY(0px); }
+            100% { transform: translateX(-50%) translateY(2.5px); }
+        }
+
+        /* 4. FLÛTE DE CLOPES OU CIGARE VOLCANIQUE (MID-LEFT) */
+        .tobacco-dock {
+            position: absolute;
+            top: 225px;
+            left: 15px;
+            z-index: 5;
+            max-width: 260px;
+            transition: all 0.2s;
+        }
+
+        .flute-frame {
+            position: relative;
+            background: rgba(20, 24, 35, 0.9);
+            border: 2px solid #b45309;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+        }
+
+        .flute-pipes-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 2px;
+            justify-content: center;
+            overflow-x: auto;
+            max-width: 245px;
+            padding-top: 45px;
+        }
+
+        .pan-tube {
+            flex-shrink: 0;
+            width: 12px;
+            background: linear-gradient(90deg, #854d0e 0%, #ca8a04 45%, #fef08a 60%, #a16207 100%);
+            border-radius: 3px 3px 6px 6px;
+            border: 1px solid #422006;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .flute-cig-slot {
+            position: absolute;
+            top: -42px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .cig-tip {
+            width: 8px;
+            height: 5px;
+            background: #333;
+            border-radius: 2px 2px 0 0;
+            transition: all 0.2s;
+        }
+        .cig-tip.lit {
+            background: radial-gradient(circle, #fff7ed 15%, #ff6a00 60%, #991b1b 100%);
+            box-shadow: 0 0 10px #ff4500, 0 0 20px #ff8c00;
+        }
+        .cig-tip.puffing {
+            background: radial-gradient(circle, #ffffff 25%, #ffaa00 70%, #ff2200 100%);
+            box-shadow: 0 0 20px #ff2200, 0 0 35px #ffa200;
+            transform: scale(1.3);
+        }
+        .cig-body {
+            width: 8px;
+            height: 35px;
+            background: repeating-linear-gradient(180deg, #f8fafc, #f1f5f9 8px, #e2e8f0 9px);
+            border-left: 1px solid #cbd5e0;
+            border-right: 1px solid #cbd5e0;
+        }
+        .cig-filter { width: 8px; height: 9px; background: #d97706; }
+
+        /* CIGARE VOLCANIQUE 2000°C (DOCK) */
+        .cigar-volcanic-box {
+            background: rgba(35, 10, 5, 0.94);
+            border: 2px solid #ff4500;
+            border-radius: 12px;
+            padding: 8px;
+            box-shadow: 0 0 25px rgba(255, 69, 0, 0.5), inset 0 0 20px rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .cigar-ember-glow {
+            width: 100%;
+            height: 55px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cigar-heat-distortion {
+            animation: heatHaze 0.15s infinite alternate;
+        }
+        @keyframes heatHaze {
+            0% { filter: drop-shadow(0 0 15px rgba(255,80,0,0.85)); }
+            100% { filter: drop-shadow(0 0 30px rgba(255,20,0,1)) drop-shadow(0 0 10px #ffff00); }
+        }
+
+        /* 5. TURBOS */
+        .turbo-cluster {
+            position: absolute;
+            top: 360px;
+            left: 20px;
+            display: flex;
+            gap: 8px;
+            z-index: 5;
+        }
+
+        .turbo-snail {
+            width: 55px;
+            height: 55px;
+            border-radius: 50% 50% 10% 50%;
+            background: radial-gradient(circle at 35% 35%, #94a3b8 0%, #475569 60%, #1e293b 100%);
+            border: 2px solid #64748b;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .turbo-snail.glowing {
+            border-color: #ff3700;
+            box-shadow: 0 0 25px #ff4500, inset 0 0 15px #ff2200;
+        }
+        .turbo-turbine {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: #0f172a; border: 2px solid #ff8c00;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .turbine-blades { width: 26px; height: 26px; animation: spinTurbine 3s infinite linear; }
+        .inhaling .turbine-blades { animation: spinTurbine 0.05s infinite linear; }
+
+        /* 6. SVG HOSES (LES 4 TUYAUX DANS LA BOUCHE) */
+        svg.hose-svg {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        /* 7. LE BONHOMME (CENTRE/BAS) */
+        .smoker-character {
+            position: absolute;
+            bottom: 5px;
+            left: 45%;
+            transform: translateX(-50%);
+            width: 360px;
+            height: 420px;
+            z-index: 6;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            transition: transform 0.1s ease-out;
+        }
+
+        .smoker-character.inhaling { animation: bodyInhale 0.25s infinite alternate; }
+        .smoker-character.coughing { animation: bodyCough 0.08s infinite alternate; }
+
+        @keyframes bodyInhale {
+            0% { transform: translateX(-50%) translateY(0px) scale(1); }
+            100% { transform: translateX(-50%) translateY(-6px) scale(1.02); }
+        }
+        @keyframes bodyCough {
+            0% { transform: translateX(-52%) translateY(6px); }
+            100% { transform: translateX(-48%) translateY(-6px); }
+        }
+
+        /* 8. L'ENFANT DU TABAGISME PASSIF (À DROITE DU BONHOMME) */
+        .kid-character {
+            position: absolute;
+            bottom: 10px;
+            right: 40px;
+            width: 170px;
+            height: 250px;
+            z-index: 7;
+            cursor: pointer;
+            filter: drop-shadow(0 8px 20px rgba(0,0,0,0.8));
+            transition: transform 0.1s;
+        }
+        .kid-character.coughing {
+            animation: kidCoughAnim 0.1s infinite alternate;
+        }
+        @keyframes kidCoughAnim {
+            0% { transform: translateX(0px) translateY(0px) rotate(-1deg); }
+            100% { transform: translateX(3px) translateY(-5px) rotate(2deg); }
+        }
+
+        /* RAYONS-X SCANLINE */
+        .xray-scanline {
+            position: absolute;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, #00ffff, #00ff88, transparent);
+            box-shadow: 0 0 15px #00ffff;
+            animation: scanlineMove 2s infinite ease-in-out;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .xray-active .xray-scanline { opacity: 0.85; }
+        @keyframes scanlineMove {
+            0% { top: 30%; }
+            100% { top: 95%; }
+        }
+
+        /* INHALE BUTTON */
+        .inhale-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .btn-inhale {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0284c7 0%, #7c3aed 35%, #dc2626 70%, #f59e0b 100%);
+            color: #fff;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 0 35px rgba(220, 38, 38, 0.8);
+            transition: all 0.15s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-inhale:hover {
+            box-shadow: 0 0 50px rgba(249, 115, 22, 1);
+            transform: translateY(-2px);
+        }
+        .btn-inhale:active, .btn-inhale.active {
+            transform: scale(0.97);
+            background: linear-gradient(135deg, #ff0000 0%, #00d2ff 100%);
+            box-shadow: 0 0 70px rgba(0, 210, 255, 1);
+        }
+
+        /* BUTTONS GRID */
+        .btn-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+
+        .btn {
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid rgba(255, 106, 0, 0.3);
+            color: #cbd5e1;
+            padding: 7px 9px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 12.5px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .btn:hover {
+            background: rgba(255, 106, 0, 0.25);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255, 106, 0, 0.4);
+        }
+
+        .btn-cern {
+            background: linear-gradient(90deg, #0284c7, #38bdf8);
+            border: 1px solid #7dd3fc;
+            color: #fff;
+            font-weight: 900;
+            grid-column: span 2;
+        }
+        .btn-rocket {
+            background: linear-gradient(90deg, #7c3aed, #ef4444);
+            border: 1px solid #c084fc;
+            color: #fff;
+            font-weight: 900;
+            grid-column: span 2;
+        }
+        .btn-defib {
+            background: linear-gradient(90deg, #e11d48, #fb7185);
+            border: 1px solid #fda4af;
+            color: #fff;
+            font-weight: 800;
+        }
+        .btn-cough {
+            background: linear-gradient(90deg, #d97706, #f59e0b);
+            border: 1px solid #fde047;
+            color: #fff;
+            font-weight: 800;
+        }
+
+        /* SLIDERS */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 11.5px;
+        }
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            color: #94a3b8;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        /* TAB NAVIGATION IN RIGHT PANEL */
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 4px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 6px 4px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            font-weight: 800;
+            background: rgba(20, 26, 40, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px 6px 0 0;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .tab-btn.active {
+            background: linear-gradient(180deg, rgba(255, 106, 0, 0.35) 0%, rgba(20, 26, 40, 0.95) 100%);
+            border-color: var(--accent);
+            color: #fff;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .tab-pane { display: none; flex-direction: column; gap: 8px; }
+        .tab-pane.active { display: flex; }
+
+        /* CARDS & METERS */
+        .comp-card {
+            background: rgba(10, 14, 24, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 9px;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .comp-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+        .comp-val {
+            font-family: 'Orbitron', monospace;
+            font-weight: 800;
+            color: var(--neon-blue);
+        }
+
+        .daily-comp-box {
+            background: rgba(0, 0, 0, 0.55);
+            border-left: 3px solid var(--accent);
+            padding: 6px 8px;
+            font-size: 11.5px;
+            color: #cbd5e1;
+            line-height: 1.3;
+            border-radius: 0 6px 6px 0;
+        }
+
+        /* ECG OSCILLOSCOPE CANVAS */
+        #ecgCanvas {
+            width: 100%;
+            height: 75px;
+            background: #02070e;
+            border: 1px solid #10b981;
+            border-radius: 6px;
+            box-shadow: inset 0 0 15px rgba(16, 185, 129, 0.25);
+        }
+
+        /* DISEASES GRID */
+        .diseases-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 5px;
+            max-height: 380px;
+            overflow-y: auto;
+            padding-right: 3px;
+        }
+        .diseases-grid::-webkit-scrollbar { width: 4px; }
+        .diseases-grid::-webkit-scrollbar-thumb { background: #ef4444; border-radius: 4px; }
+
+        .disease-card {
+            background: rgba(15, 20, 32, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            transition: all 0.2s;
+        }
+        .disease-card.unlocked {
+            border-color: #ef4444;
+            background: rgba(40, 10, 15, 0.85);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+        }
+        .disease-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 800;
+            font-size: 12px;
+        }
+        .disease-badge {
+            font-size: 9px;
+            font-family: 'Orbitron', monospace;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+        }
+        .disease-card.unlocked .disease-badge {
+            background: #ef4444;
+            color: #fff;
+            font-weight: bold;
+        }
+        .disease-desc {
+            font-size: 11px;
+            color: #94a3b8;
+            line-height: 1.25;
+        }
+
+        /* LOG BOX */
+        .log-box {
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            padding: 7px;
+            height: 85px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 10.5px;
+            color: #38bdf8;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .log-entry { line-height: 1.25; }
+        .log-warn { color: #f59e0b; }
+        .log-danger { color: #ef4444; font-weight: bold; }
+        .log-good { color: #10b981; }
+        .log-cern { color: #38bdf8; font-weight: bold; }
+
+        /* MODAL CERTIFICAT MÉDICAL */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+
+        .cert-paper {
+            width: 100%;
+            max-width: 650px;
+            background: #fdfbf7;
+            color: #1a1a1a;
+            border: 4px double #854d0e;
+            border-radius: 8px;
+            padding: 25px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            font-family: 'Georgia', serif;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .cert-header {
+            text-align: center;
+            border-bottom: 2px solid #854d0e;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+        .cert-stamp {
+            position: absolute;
+            top: 25px;
+            right: 25px;
+            border: 3px solid #b91c1c;
+            color: #b91c1c;
+            font-family: 'Bangers', cursive;
+            font-size: 18px;
+            padding: 4px 10px;
+            border-radius: 8px;
+            transform: rotate(12deg);
+        }
+
+        footer {
+            width: 100%;
+            padding: 7px 20px;
+            text-align: center;
+            font-size: 11.5px;
+            color: #64748b;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <!-- FLASH DEFIBRILLATEUR -->
+    <div id="defibFlash"></div>
+
+    <!-- MODAL CERTIFICAT D'INTOXICATION OFFICIEL -->
+    <div class="modal-overlay" id="certModal">
+        <div class="cert-paper">
+            <div class="cert-stamp">HOMOLOGUÉ BERCY & CERN</div>
+            <div class="cert-header">
+                <h2 style="font-family:'Times New Roman',serif; font-size:22px; text-transform:uppercase; letter-spacing:1px; color:#451a03;">RÉPUBLIQUE FRANÇAISE DU TABAC & DU CERN</h2>
+                <div style="font-size:12px; font-style:italic; color:#78350f;">Hôpital Spécialisé des Voies Aéro-Spatio-Diesel • Service de Réanimation Quantique</div>
+                <h3 style="margin-top:8px; font-size:16px; color:#b91c1c;">BULLETIN D'INTOXICATION CLINIQUE & APTITUDE ORBITALE</h3>
+            </div>
+            <div style="font-size:13px; line-height:1.5;">
+                <p><b>Patient :</b> Sujet #404 — Pilote Scania V8 & Particules CERN</p>
+                <p><b>Âge Pulmonaire Estimé :</b> <span id="certLungAge" style="font-weight:bold; color:#b91c1c;">148 ans</span> (Capacité vitale : 4%)</p>
+                <p><b>Cigarettes Consommées :</b> <span id="certCigs">0</span> (<span id="certCost">0.00 €</span> dépensés en direct)</p>
+                <p><b>Tribut Versé à l'État (Bercy 83%) :</b> <span id="certTaxes" style="font-weight:bold; color:#047857;">0.00 €</span></p>
+                <p><b>Goudron Alvéolaire & Kérosène :</b> <span id="certTar">0.0 g</span> (équivalent à un pot de moto rouillé)</p>
+                <p><b>Rayonnement Synchrotron Absorbé :</b> <span id="certCern">0.0 TeV</span></p>
+                <hr style="margin:12px 0; border:0; border-top:1px dashed #a16207;">
+                <h4 style="color:#b91c1c; margin-bottom:5px;">DIAGNOSTIC DU DR. JEAN-GOUDRON :</h4>
+                <div id="certDiagnostic" style="background:#fef3c7; border:1px solid #f59e0b; padding:10px; border-radius:6px; font-size:12.5px; font-style:italic;">
+                    "Le sujet respire actuellement un mélange stœchiométrique d'huile 15W40, de nicotine collisionnée à 14 TeV et d'ergols de fusée. Poumons calcinés, cœur en surrégime. Déclaré inapte au sport mais médaille du civisme fiscal."
+                </div>
+                <div style="margin-top:12px; font-weight:bold;">Maladies Répertoriées à ce jour :</div>
+                <ul id="certDiseasesList" style="margin-left:20px; font-size:12px; color:#7f1d1d;">
+                    <li>Aucune (pour l'instant)</li>
+                </ul>
+            </div>
+            <div style="margin-top:18px; display:flex; justify-content:space-between; align-items:center;">
+                <button onclick="window.print()" class="btn" style="background:#0284c7; color:#fff;">🖨️ IMPRIMER LE CERTIFICAT</button>
+                <button onclick="document.getElementById('certModal').classList.remove('active')" class="btn" style="background:#dc2626; color:#fff;">FERMER</button>
+            </div>
+        </div>
+    </div>
+
+    <header>
+        <div class="brand-title">
+            <span>🚀 HYPERSMOKER 20000</span>
+            <span class="badge-cern">CERN 14 TeV</span>
+            <span class="badge-rocket">V8 + FUSÉE + CIGARE</span>
+        </div>
+        <div class="header-status">
+            <div class="status-pill">
+                <span class="dot"></span>
+                <span id="powerStatus" style="color:var(--ember-bright);">FUMÉE CONTINUE</span>
+            </div>
+            <div class="status-pill" style="border-color: rgba(234, 179, 8, 0.45); background: rgba(30, 24, 10, 0.75);">
+                <span style="color: #fde047; font-weight:700;">PAQUET : 13,00 € (FR)</span>
+            </div>
+            <div class="status-pill" style="border-color: rgba(34, 197, 94, 0.45); background: rgba(10, 30, 15, 0.75);">
+                <span style="color: #4ade80;">CRAMÉ :</span>
+                <span id="headerTotalCost" style="color: var(--neon-green); font-weight:900;">0,00 €</span>
+            </div>
+            <div class="status-pill" style="border-color:#38bdf8;">
+                <span style="color:#38bdf8;">CERN:</span>
+                <span id="headerCernBeamVal" style="color:#7dd3fc; font-weight:bold;">13.6 TeV</span>
+            </div>
+            <div class="status-pill" style="border-color:#f43f5e;">
+                <span style="color:#f43f5e;">ECG:</span>
+                <span id="headerBpmVal" style="color:#fb7185; font-weight:900;">75 BPM</span>
+            </div>
+            <div class="status-pill" style="border-color:#00d2ff;">
+                <span style="color:#00d2ff;">SpO2:</span>
+                <span id="headerSpo2Val" style="color:#67e8f9; font-weight:900;">99%</span>
+            </div>
+            <div class="status-pill" style="border-color:#ef4444;">
+                <span style="color:#ef4444;">PATHOLOGIES:</span>
+                <span id="headerDiseasesVal" style="color:#fca5a5; font-weight:900;">0 / 12</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <!-- LEFT PANEL: CERN, PROPULSION, CIGARES & SOINS -->
+        <aside class="panel">
+            <div class="panel-title">
+                <span>⚛️ ACCÉLÉRATEUR CERN & BOOST</span>
+                <span>HADRON-NICOTINE</span>
+            </div>
+
+            <!-- CHOIX FLÛTE OU CIGARE CHAUD 2000°C -->
+            <div style="display:flex; gap:5px; background:rgba(0,0,0,0.5); padding:4px; border-radius:8px;">
+                <button id="btnTabFlute" class="btn" style="flex:1; border-color:#eab308; color:#fde047; background:rgba(234,179,8,0.25);">🚬 Flûte Clopes</button>
+                <button id="btnTabCigar" class="btn" style="flex:1; border-color:#ff4500; color:#ff4500;">🔥 Cigare 2000°C</button>
+            </div>
+
+            <!-- SLIDER CLOPES (FLÛTE) -->
+            <div class="slider-group" id="groupSliderFlute" style="background: rgba(0,0,0,0.4); padding: 7px; border-radius: 8px; border: 1px solid rgba(255,100,0,0.3);">
+                <div class="slider-label" style="font-weight: bold; color: #f59e0b;">
+                    <span>🚬 CLOPES EN FLÛTE</span>
+                    <span id="valCigCount">15 CLOPES (9.75 €)</span>
+                </div>
+                <input type="range" id="sliderCigCount" min="1" max="40" value="15">
+            </div>
+
+            <!-- SLIDER TEMPÉRATURE CIGARE (VOLCANIQUE) -->
+            <div class="slider-group" id="groupSliderCigar" style="display:none; background: rgba(0,0,0,0.4); padding: 7px; border-radius: 8px; border: 1px solid rgba(255,69,0,0.5);">
+                <div class="slider-label" style="font-weight: bold; color: #ff4500;">
+                    <span>🔥 T° CIGARE VOLCANIQUE</span>
+                    <span id="valCigarTemp">2 000 °C (MAGMA)</span>
+                </div>
+                <input type="range" id="sliderCigarTemp" min="500" max="3000" step="50" value="2000">
+            </div>
+
+            <!-- CERN ENERGY SLIDER -->
+            <div class="slider-group" style="background: rgba(0,0,0,0.4); padding: 7px; border-radius: 8px; border: 1px solid rgba(2,132,199,0.4);">
+                <div class="slider-label" style="font-weight: bold; color: #38bdf8;">
+                    <span>⚛️ ÉNERGIE CERN LHC</span>
+                    <span id="valCernEnergy">13.6 TeV (COLLISION)</span>
+                </div>
+                <input type="range" id="sliderCern" min="1.0" max="14.0" step="0.2" value="13.6">
+            </div>
+
+            <!-- TURBO BOOST 20 BARS -->
+            <div class="slider-group" style="background: rgba(0,0,0,0.4); padding: 7px; border-radius: 8px; border: 1px solid rgba(255,50,0,0.3);">
+                <div class="slider-label" style="font-weight: bold; color: #ef4444;">
+                    <span>⚡ SURALIMENTATION TURBO</span>
+                    <span id="valBoostSetting">20.0 BARS</span>
+                </div>
+                <input type="range" id="sliderBoost" min="1" max="20" value="20" step="0.5">
+            </div>
+
+            <div class="btn-grid">
+                <button id="btnCernCollision" class="btn btn-cern">
+                    <span>💥 COLLISION HADRONIQUE CERN (14 TeV)</span>
+                </button>
+                <button id="btnFireRocket" class="btn btn-rocket">
+                    <span>🚀 METTRE À FEU LA FUSÉE (BOOST)</span>
+                </button>
+                <button id="btnTruckHorn" class="btn">
+                    <span>📢 KLAXON SCANIA</span>
+                </button>
+                <button id="btnAddTurbo" class="btn" style="background:linear-gradient(90deg, #2563eb, #06b6d4); color:#fff;">
+                    <span>➕ AJOUTER TURBO</span>
+                </button>
+                <button id="btnAutoSmoke" class="btn" style="background:linear-gradient(90deg, #7c3aed, #ec4899); color:#fff;">
+                    <span>🔄 FUMEUR AUTO : OFF</span>
+                </button>
+                <button id="btnToggleXray" class="btn" style="background:linear-gradient(90deg, #059669, #10b981); color:#fff;">
+                    <span>🩻 RAYONS-X (X)</span>
+                </button>
+            </div>
+
+            <div class="panel-title" style="margin-top: 4px;">
+                <span>🚨 SOINS D'URGENCE & SOUPAPES</span>
+            </div>
+
+            <div class="btn-grid">
+                <button id="btnDefib" class="btn btn-defib">
+                    <span>⚡ DÉFIB 50kV (D)</span>
+                </button>
+                <button id="btnCough" class="btn btn-cough">
+                    <span>🫁 TOUX SISMIQUE (C)</span>
+                </button>
+                <button id="btnVentoline" class="btn" style="background:linear-gradient(90deg, #0284c7, #38bdf8); color:#fff;">
+                    <span>💨 VENTOLINE (V)</span>
+                </button>
+                <button id="btnOilDrain" class="btn">
+                    <span>🛢️ VIDANGE POUMONS</span>
+                </button>
+                <button id="btnRings" class="btn">
+                    <span>🌀 RONDS DE FUMÉE (O)</span>
+                </button>
+                <button id="btnAsh" class="btn">
+                    <span>🌪️ TAPOTER CENDRE</span>
+                </button>
+            </div>
+
+            <div class="panel-title" style="margin-top: 4px;">
+                <span>📢 MONITEUR SONORE & ÉCHAPPEMENTS</span>
+            </div>
+            <div class="log-box" id="logBox">
+                <div class="log-entry log-cern">[CERN] Faisceau de nicotine relativiste synchronisé à 13.6 TeV !</div>
+                <div class="log-entry log-good">[INIT] Flûte + Cigare chaud + Camion V8 + Fusée raccordés à la bouche !</div>
+                <div class="log-entry log-warn">[ATTENTION] L'enfant du voisin se prend toute la fumée dans la tête !</div>
+            </div>
+        </aside>
+
+        <!-- CENTER STAGE: LE MONDE APOCALYPTIQUE -->
+        <section class="stage-container" id="stageContainer">
+            <!-- HUD BAR SUR LE STAGE -->
+            <div class="stage-hud-bar">
+                <button class="hud-btn" id="hudXray">🩻 RAYONS-X</button>
+                <button class="hud-btn" id="hudDefib">⚡ DÉFIB</button>
+                <button class="hud-btn" id="hudCough">🫁 CRACHAT</button>
+                <button class="hud-btn" id="hudCern">💥 CERN</button>
+                <button class="hud-btn" id="hudAuto">🔄 AUTO</button>
+            </div>
+
+            <!-- BULLES COMIC -->
+            <div id="comicBubble" class="comic-bubble">*KHEUK KHEUK !* 💨</div>
+            <div id="kidBubble" class="kid-bubble">NON ARRÊTE !</div>
+
+            <!-- CANVASES -->
+            <canvas id="smokeCanvas"></canvas>
+            <canvas id="tarCanvas"></canvas>
+
+            <!-- 1. CERN PARTICLE ACCELERATOR (HAUT GAUCHE) -->
+            <div class="cern-unit" id="cernUnit">
+                <div class="cern-frame">
+                    <div class="cern-title-row">
+                        <span>LHC CERN 14TeV</span>
+                        <span id="cernStatusBadge" style="color:#10b981;">COLLISION ONLINE</span>
+                    </div>
+                    <div class="cern-beam-ring">
+                        <svg viewBox="0 0 120 100" width="100%" height="100%">
+                            <!-- Synchrotron Vacuum Ring -->
+                            <ellipse cx="60" cy="50" rx="48" ry="38" fill="none" stroke="#0284c7" stroke-width="8"/>
+                            <ellipse cx="60" cy="50" rx="48" ry="38" fill="none" stroke="#38bdf8" stroke-width="2" stroke-dasharray="6,4" class="beam-ring-svg"/>
+                            <!-- Dipole Bending Magnets (Cryo) -->
+                            <rect x="25" y="10" width="16" height="8" fill="#eab308" stroke="#000"/>
+                            <rect x="75" y="10" width="16" height="8" fill="#eab308" stroke="#000"/>
+                            <rect x="25" y="82" width="16" height="8" fill="#eab308" stroke="#000"/>
+                            <rect x="75" y="82" width="16" height="8" fill="#eab308" stroke="#000"/>
+                            <rect x="8" y="44" width="8" height="14" fill="#0284c7" stroke="#000"/>
+                            <rect x="104" y="44" width="8" height="14" fill="#0284c7" stroke="#000"/>
+                            <!-- Central Detector (CMS / ATLAS) -->
+                            <polygon points="60,32 72,40 72,60 60,68 48,60 48,40" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                            <circle cx="60" cy="50" r="6" fill="#f43f5e" id="cernCollisionSpark"/>
+                            <!-- Beam Extraction Nozzle towards mouth -->
+                            <path d="M60,68 L60,95 L65,95 L65,68 Z" fill="#0284c7"/>
+                            <circle cx="62.5" cy="95" r="4" fill="#38bdf8" id="cernExhaustNozzle"/>
+                        </svg>
+                    </div>
+                    <div style="font-size:9px; color:#cbd5e1; font-family:monospace; display:flex; justify-content:space-between; width:100%;">
+                        <span>P: 13.6 TeV</span>
+                        <span id="cernLumiVal">L: 10³⁴ cm⁻²s⁻¹</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. LA FUSÉE SPATIALE (CENTRE HAUT) -->
+            <div class="rocket-unit" id="rocketUnit">
+                <svg viewBox="0 0 140 220" width="100%" height="100%">
+                    <g id="rocketBody">
+                        <path d="M70,5 L88,50 L52,50 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="2"/>
+                        <rect x="52" y="50" width="36" height="110" fill="#f8fafc" stroke="#475569" stroke-width="2"/>
+                        <rect x="52" y="70" width="36" height="12" fill="#2563eb"/>
+                        <text x="70" y="80" font-family="'Orbitron', sans-serif" font-weight="900" font-size="8" fill="#fff" text-anchor="middle">USA-15</text>
+                        <rect x="36" y="80" width="14" height="80" rx="3" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+                        <path d="M36,80 L43,65 L50,80 Z" fill="#ef4444"/>
+                        <rect x="90" y="80" width="14" height="80" rx="3" fill="#cbd5e1" stroke="#334155" stroke-width="2"/>
+                        <path d="M90,80 L97,65 L104,80 Z" fill="#ef4444"/>
+                        <path d="M58,160 L50,185 L90,185 L82,160 Z" fill="#334155" stroke="#1e293b" stroke-width="2"/>
+                        <ellipse cx="70" cy="185" rx="18" ry="6" fill="#0f172a" id="rocketExhaustHole"/>
+                    </g>
+                </svg>
+            </div>
+
+            <!-- 3. LE CAMION DIESEL V8 (HAUT DROITE) -->
+            <div class="truck-topright" id="truckUnit">
+                <svg viewBox="0 0 240 170" width="100%" height="100%">
+                    <g id="truckBody">
+                        <path d="M40,130 L40,65 L130,65 L165,95 L195,95 L200,130 Z" fill="#b91c1c" stroke="#450a0a" stroke-width="3"/>
+                        <path d="M132,70 L160,95 L132,95 Z" fill="#38bdf8" opacity="0.85"/>
+                        <rect x="85" y="70" width="40" height="25" fill="#38bdf8" opacity="0.85"/>
+                        <rect x="185" y="98" width="16" height="30" fill="#cbd5e1" stroke="#475569" stroke-width="2"/>
+                        <circle cx="195" cy="106" r="4" fill="#fef08a"/>
+                        <rect x="25" y="15" width="14" height="115" fill="linear-gradient(90deg, #94a3b8, #f8fafc, #475569)" stroke="#1e293b" stroke-width="2"/>
+                        <ellipse cx="32" cy="15" rx="7" ry="4" fill="#0f172a" id="truckExhaustTip"/>
+                        <circle cx="70" cy="132" r="15" fill="#1e293b" stroke="#000" stroke-width="3"/>
+                        <circle cx="160" cy="132" r="15" fill="#1e293b" stroke="#000" stroke-width="3"/>
+                        <text x="105" y="118" font-family="'Orbitron', sans-serif" font-weight="900" font-size="10" fill="#fef08a">V8 1000CH</text>
+                    </g>
+                </svg>
+            </div>
+
+            <!-- 4. DOCK TABAC : FLÛTE OU CIGARE CHAUD 2000°C -->
+            <div class="tobacco-dock" id="tobaccoDock">
+                <!-- Vue Flûte -->
+                <div class="flute-frame" id="viewFlute">
+                    <div style="font-family:'Orbitron',monospace; font-size:9px; color:#eab308; text-align:center; margin-bottom:3px;">
+                        FLÛTE DE PAN MODULAIRE
+                    </div>
+                    <div class="flute-pipes-row" id="flutePipesRow"></div>
+                </div>
+
+                <!-- Vue Cigare Volcanique 2000°C -->
+                <div class="cigar-volcanic-box" id="viewCigar" style="display:none;">
+                    <div style="font-family:'Orbitron',monospace; font-size:9.5px; font-weight:900; color:#ff4500; text-align:center;">
+                        COHIBA VOLCANIQUE THERMONUCLÉAIRE
+                    </div>
+                    <div class="cigar-ember-glow">
+                        <svg viewBox="0 0 220 50" width="100%" height="100%" class="cigar-heat-distortion">
+                            <!-- Cigar Body -->
+                            <rect x="60" y="12" width="150" height="26" rx="4" fill="#582f0e" stroke="#331800" stroke-width="2"/>
+                            <!-- Cigar Band (Gold ring) -->
+                            <rect x="155" y="12" width="22" height="26" fill="#eab308" stroke="#ca8a04"/>
+                            <text x="166" y="28" font-family="'Orbitron'" font-size="7" font-weight="900" fill="#000" text-anchor="middle">2000°</text>
+                            <!-- Ash Tip -->
+                            <path d="M45,12 L60,12 L60,38 L45,38 Z" fill="#71717a" stroke="#3f3f46"/>
+                            <!-- Incandescent Burning Tip -->
+                            <ellipse cx="45" cy="25" rx="12" ry="13" fill="url(#cigarGrad)" id="cigarHotTip"/>
+                            <defs>
+                                <radialGradient id="cigarGrad" cx="50%" cy="50%" r="50%">
+                                    <stop offset="0%" stop-color="#ffffff"/>
+                                    <stop offset="30%" stop-color="#ffbe33"/>
+                                    <stop offset="70%" stop-color="#ff2200"/>
+                                    <stop offset="100%" stop-color="#990000"/>
+                                </radialGradient>
+                            </defs>
+                            <circle cx="42" cy="25" r="5" fill="#ffffff" filter="drop-shadow(0 0 8px #ffffff)"/>
+                            <!-- Smoker mouth connector point on the right -->
+                            <ellipse cx="210" cy="25" rx="6" ry="10" fill="#331800" id="cigarConnectorTip"/>
+                        </svg>
+                    </div>
+                    <div style="font-size:10px; color:#fde047; font-weight:bold; text-align:center;">
+                        FOYER EN FUSION : <span id="cigarTempDisplay">2 000 °C</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. LES TURBOS -->
+            <div class="turbo-cluster" id="turboCluster"></div>
+
+            <!-- 6. LES 4 TUYAUX SVG VERS LA BOUCHE -->
+            <svg class="hose-svg" id="hoseSvg">
+                <!-- Tuyau 1: Flûte ou Cigare vers Bouche -->
+                <path id="hoseFluteOuter" d="" fill="none" stroke="#854d0e" stroke-width="16" stroke-dasharray="8,5" stroke-linecap="round"/>
+                <path id="hoseFluteCore" d="" fill="none" stroke="rgba(255, 140, 0, 0.6)" stroke-width="8" stroke-linecap="round"/>
+
+                <!-- Tuyau 2: Camion V8 Pot vers Bouche -->
+                <path id="hoseTruckOuter" d="" fill="none" stroke="#1e293b" stroke-width="18" stroke-dasharray="10,6" stroke-linecap="round"/>
+                <path id="hoseTruckCore" d="" fill="none" stroke="rgba(30, 41, 59, 0.85)" stroke-width="10" stroke-linecap="round"/>
+
+                <!-- Tuyau 3: FUSÉE Spatiale vers Bouche -->
+                <path id="hoseRocketShadow" d="" fill="none" stroke="rgba(0,0,0,0.85)" stroke-width="26" stroke-linecap="round"/>
+                <path id="hoseRocketOuter" d="" fill="none" stroke="#7c3aed" stroke-width="20" stroke-dasharray="12,6" stroke-linecap="round"/>
+                <path id="hoseRocketCore" d="" fill="none" stroke="rgba(239, 68, 68, 0.8)" stroke-width="12" stroke-linecap="round"/>
+
+                <!-- Tuyau 4: CERN FAISCEAU DE PARTICULES VERS BOUCHE -->
+                <path id="hoseCernOuter" d="" fill="none" stroke="#0284c7" stroke-width="18" stroke-dasharray="14,6" stroke-linecap="round"/>
+                <path id="hoseCernCore" d="" fill="none" stroke="#38bdf8" stroke-width="10" stroke-linecap="round"/>
+            </svg>
+
+            <!-- 7. LE BONHOMME (PILOTE DE L'ESPACE & DU CERN) -->
+            <div class="smoker-character" id="smokerGuy">
+                <div class="xray-scanline"></div>
+                <svg id="characterSvg" viewBox="0 0 380 440" width="100%" height="100%">
+                    <!-- Corps / Vêtement -->
+                    <path d="M40,340 Q190,315 340,340 L370,440 L10,440 Z" id="pilotShirt" fill="#1e293b" stroke="#0f172a" stroke-width="4"/>
+                    <text x="190" y="420" font-family="'Orbitron', sans-serif" font-weight="900" font-size="15" fill="#f59e0b" text-anchor="middle">CERN-V8 PILOT</text>
+
+                    <!-- Cou & Visage -->
+                    <rect x="150" y="250" width="80" height="90" fill="#e2a674" stroke="#78350f" stroke-width="3" id="pilotNeck"/>
+                    <ellipse cx="110" cy="190" rx="16" ry="24" fill="#f6c89f" stroke="#78350f" stroke-width="3"/>
+                    <ellipse cx="270" cy="190" rx="16" ry="24" fill="#f6c89f" stroke="#78350f" stroke-width="3"/>
+
+                    <path d="M115,180 C115,100 140,50 190,50 C245,50 270,100 270,180 C270,250 255,280 190,280 C130,280 115,250 115,180 Z"
+                          class="face-skin" id="faceSkin" fill="#f6c89f" stroke="#78350f" stroke-width="3"/>
+
+                    <ellipse cx="135" cy="205" rx="15" ry="24" fill="#e2a674" opacity="0.6" class="cheeks-left"/>
+                    <ellipse cx="245" cy="205" rx="15" ry="24" fill="#e2a674" opacity="0.6" class="cheeks-right"/>
+
+                    <!-- Cheveux -->
+                    <path d="M110,110 Q190,10 275,100 Q295,50 190,25 Q90,50 110,110 Z" fill="#2d1a08"/>
+
+                    <!-- Lunettes de soleil -->
+                    <path d="M120,135 L180,135 L175,170 L130,170 Z" class="sunglass-lens" fill="#0f172a" stroke="#000" stroke-width="3"/>
+                    <path d="M200,135 L260,135 L250,170 L205,170 Z" class="sunglass-lens" fill="#0f172a" stroke="#000" stroke-width="3"/>
+                    <line x1="180" y1="140" x2="200" y2="140" stroke="#000" stroke-width="4"/>
+                    <polygon points="135,140 168,140 158,165 138,165" class="sunglass-reflect" fill="#ff7700"/>
+                    <polygon points="215,140 248,140 238,165 223,165" class="sunglass-reflect" fill="#ff7700"/>
+
+                    <!-- Nez -->
+                    <path d="M185,160 L180,200 L200,200 Z" fill="#e2a674" stroke="#78350f" stroke-width="2"/>
+
+                    <!-- Bouche avec Collecteur 4 Tuyaux (Flûte/Cigare, Fusée, Camion, CERN) -->
+                    <g id="dudeMouth">
+                        <ellipse cx="190" cy="235" rx="32" ry="18" fill="#270e02" stroke="#78350f" stroke-width="2"/>
+                        <rect x="155" y="222" width="70" height="26" rx="8" fill="#334155" stroke="#94a3b8" stroke-width="2"/>
+                        <!-- 4 Sockets -->
+                        <circle cx="165" cy="235" r="5" fill="#854d0e" title="Flûte/Cigare"/>
+                        <circle cx="180" cy="235" r="5" fill="#7c3aed" title="Fusée"/>
+                        <circle cx="196" cy="235" r="5" fill="#0284c7" title="CERN LHC"/>
+                        <circle cx="212" cy="235" r="5" fill="#0f172a" title="Camion V8"/>
+                    </g>
+
+                    <!-- GROUPE RAYONS-X (POUMONS, CŒUR, CÔTES, TRACHÉE) -->
+                    <g id="xrayGroup" style="opacity: 0; transition: opacity 0.3s; pointer-events: none;">
+                        <!-- Trachée -->
+                        <rect x="186" y="248" width="8" height="60" fill="none" stroke="#00ffff" stroke-width="2" stroke-dasharray="3,2"/>
+                        <!-- Poumon Gauche -->
+                        <path id="xrayLungLeft" d="M182,310 C160,310 115,325 115,375 C115,415 145,425 178,415 C185,410 185,340 182,310 Z"
+                              fill="#f472b6" stroke="#00ffff" stroke-width="2.5" opacity="0.85"/>
+                        <!-- Poumon Droit -->
+                        <path id="xrayLungRight" d="M198,310 C220,310 265,325 265,375 C265,415 235,425 202,415 C195,410 195,340 198,310 Z"
+                              fill="#f472b6" stroke="#00ffff" stroke-width="2.5" opacity="0.85"/>
+                        <!-- Cœur Anatomique Pulsant -->
+                        <g id="xrayHeart" transform-origin="190 365">
+                            <path d="M190,345 C185,335 170,335 170,352 C170,370 190,388 190,388 C190,388 210,370 210,352 C210,335 195,335 190,345 Z"
+                                  fill="#dc2626" stroke="#fecaca" stroke-width="1.5"/>
+                        </g>
+                        <!-- Cage Thoracique (Côtes) -->
+                        <path d="M130,325 Q190,340 250,325" fill="none" stroke="rgba(0,255,255,0.7)" stroke-width="2.5"/>
+                        <path d="M120,350 Q190,368 260,350" fill="none" stroke="rgba(0,255,255,0.7)" stroke-width="2.5"/>
+                        <path d="M120,375 Q190,395 260,375" fill="none" stroke="rgba(0,255,255,0.7)" stroke-width="2.5"/>
+                        <path d="M125,400 Q190,420 255,400" fill="none" stroke="rgba(0,255,255,0.7)" stroke-width="2.5"/>
+                    </g>
+                </svg>
+            </div>
+
+            <!-- 8. L'ENFANT DU TABAGISME PASSIF (QUI DIT NON ARRÊTE !) -->
+            <div class="kid-character" id="kidGuy" title="Clique sur l'enfant pour entendre son désespoir !">
+                <svg viewBox="0 0 170 250" width="100%" height="100%">
+                    <!-- Schoolbag on back -->
+                    <rect x="15" y="110" width="30" height="45" rx="6" fill="#2563eb" stroke="#1e3a8a" stroke-width="2"/>
+                    <!-- Kid Body (T-Shirt) -->
+                    <path d="M40,110 L130,110 L140,190 L30,190 Z" fill="#eab308" stroke="#a16207" stroke-width="3"/>
+                    <text x="85" y="150" font-family="'Bangers'" font-size="14" fill="#000" text-anchor="middle">ÉCOLE</text>
+                    <!-- Shorts -->
+                    <rect x="42" y="190" width="38" height="30" fill="#3b82f6"/>
+                    <rect x="85" y="190" width="38" height="30" fill="#3b82f6"/>
+                    <!-- Legs -->
+                    <rect x="50" y="220" width="20" height="25" fill="#fbcfe8"/>
+                    <rect x="95" y="220" width="20" height="25" fill="#fbcfe8"/>
+                    <!-- Kid Head -->
+                    <circle cx="85" cy="65" r="38" fill="#fde047" stroke="#ca8a04" stroke-width="3" id="kidFace"/>
+                    <!-- Cap -->
+                    <path d="M45,55 Q85,15 125,55 L145,50 L125,60 Z" fill="#ef4444" stroke="#991b1b" stroke-width="2"/>
+                    <!-- Kid Eyes (Watering, red, coughing) -->
+                    <ellipse cx="72" cy="62" rx="7" ry="9" fill="#fff" stroke="#000" stroke-width="2"/>
+                    <circle cx="72" cy="62" r="3.5" fill="#b91c1c"/>
+                    <ellipse cx="98" cy="62" rx="7" ry="9" fill="#fff" stroke="#000" stroke-width="2"/>
+                    <circle cx="98" cy="62" r="3.5" fill="#b91c1c"/>
+                    <!-- Tears flowing -->
+                    <path d="M66,68 Q60,78 68,85" stroke="#38bdf8" stroke-width="3" fill="none"/>
+                    <path d="M104,68 Q110,78 102,85" stroke="#38bdf8" stroke-width="3" fill="none"/>
+                    <!-- Coughing Open Mouth -->
+                    <ellipse cx="85" cy="85" rx="10" ry="12" fill="#7f1d1d" stroke="#000" stroke-width="2" id="kidMouth"/>
+                    <!-- Kid Arm Waving (to push away smoke) -->
+                    <g id="kidArmWave" transform-origin="125 115">
+                        <path d="M125,115 L160,85 L155,75" stroke="#fde047" stroke-width="12" stroke-linecap="round" fill="none"/>
+                        <!-- Hand -->
+                        <circle cx="158" cy="78" r="8" fill="#fde047"/>
+                    </g>
+                </svg>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: ONGLETS MALADIES, BUDGET 13€ & DOSSIER MÉDICAL -->
+        <aside class="panel">
+            <!-- TAB BAR -->
+            <div class="tab-bar">
+                <button class="tab-btn active" id="tabBtnDiseases">🫁 MALADIES (12)</button>
+                <button class="tab-btn" id="tabBtnBudget">💶 BUDGET 13€</button>
+                <button class="tab-btn" id="tabBtnMedical">📋 DOSSIER</button>
+            </div>
+
+            <!-- TAB 1: 12 MALADIES & OSCILLOSCOPE ECG -->
+            <div class="tab-pane active" id="paneDiseases">
+                <!-- MONITEUR ECG EN DIRECT -->
+                <div class="comp-card" style="border-color:#10b981; background:rgba(2, 7, 14, 0.9);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                        <span style="color:#10b981; font-weight:bold;">💓 MONITEUR CARDIAQUE & OXYGÈNE</span>
+                        <span id="ecgStatusLabel" style="color:#4ade80;">SINUSAL STABLE</span>
+                    </div>
+                    <canvas id="ecgCanvas"></canvas>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:11px; margin-top:2px;">
+                        <div>FC : <span id="valBpm" style="color:#fb7185; font-weight:bold;">75 BPM</span></div>
+                        <div>SpO2 : <span id="valSpo2" style="color:#38bdf8; font-weight:bold;">99%</span></div>
+                        <div>Goudron : <span id="valTarAccumulated" style="color:#f59e0b; font-weight:bold;">0.0 g</span></div>
+                        <div>Pression : <span id="valAlveolarPressure" style="color:#ef4444; font-weight:bold;">1.0 Bar</span></div>
+                    </div>
+                </div>
+
+                <div class="panel-title" style="margin-top:2px;">
+                    <span>🦠 CATALOGUE DES 12 PATHOLOGIES</span>
+                    <span id="unlockedCountBadge">0 / 12 DÉBLOQUÉES</span>
+                </div>
+
+                <!-- GRILLE DES 12 MALADIES -->
+                <div class="diseases-grid" id="diseasesGrid"></div>
+            </div>
+
+            <!-- TAB 2: BUDGET TABAC 13€ & BILAN SPATIAL (EXISTANT CONSERVÉ À 100%) -->
+            <div class="tab-pane" id="paneBudget">
+                <div class="inhale-zone">
+                    <button id="btnInhale" class="btn-inhale">
+                        <span>💨 FUMER À MORT (TRIPLE BOOST)</span>
+                    </button>
+                    <span style="font-size: 12px; color: #94a3b8;">
+                        Maintiens le bouton ou appuie sur <span style="color:#fff; background:rgba(255,255,255,0.15); padding:1px 5px; border-radius:4px; font-family:monospace;">ESPACE</span>
+                    </span>
+                </div>
+
+                <!-- COMPTEUR BUDGET TABAC 13€ -->
+                <div class="comp-card" style="border-color: rgba(234, 179, 8, 0.45); background: rgba(30, 24, 10, 0.75);">
+                    <div class="comp-row">
+                        <span style="color:#fde047; font-weight:800;">💶 PRIX DU PAQUET (20) :</span>
+                        <span class="comp-val" style="color:#fde047; font-size:14px;">13,00 € (FRANCE)</span>
+                    </div>
+                    <div class="comp-row">
+                        <span style="color:#cbd5e1;">🚬 COÛT PAR CLOPE :</span>
+                        <span class="comp-val" style="color:#fbbf24;">0,65 € / unité</span>
+                    </div>
+                    <div class="comp-row">
+                        <span style="color:#cbd5e1;">💨 FOURNÉE ACTIVE :</span>
+                        <span id="valFluteCost" class="comp-val" style="color:#f59e0b; font-weight:900;">9,75 €</span>
+                    </div>
+                    <div class="comp-row">
+                        <span style="color:#cbd5e1;">💸 CRAMÉ EN DIRECT :</span>
+                        <span id="valTotalCost" class="comp-val" style="color:var(--neon-green); font-size:15px;">0,00 €</span>
+                    </div>
+                    <div class="comp-row">
+                        <span style="color:#cbd5e1;">📦 PAQUETS CONSOMMÉS :</span>
+                        <span id="valPacksBurned" class="comp-val" style="color:#38bdf8;">0,00 paquets</span>
+                    </div>
+                    <div class="comp-row">
+                        <span style="color:#cbd5e1;">🏛️ TAXES BERCY (83%) :</span>
+                        <span id="valTaxesPaid" class="comp-val" style="color:#f472b6;">0,00 €</span>
+                    </div>
+                </div>
+
+                <div class="daily-comp-box" style="border-left-color: #fde047;">
+                    🥙 <b>Menus Kebab (8,50 €) :</b> Déjà <span id="valKebabCount" style="color:#fde047; font-weight:bold;">0,0</span> partis en fumée.
+                </div>
+                <div class="daily-comp-box" style="border-left-color: #22c55e;">
+                    💼 <b>SMIC Net (1 426 €) :</b> <span id="valSmicPercent" style="color:#22c55e; font-weight:bold;">0,00%</span> du salaire évaporé.
+                </div>
+                <div class="daily-comp-box" style="border-left-color: #38bdf8;">
+                    ⚛️ <b>Facture CERN (13.6 TeV) :</b> Équivalent à la conso de <b>28 TGV Paris-Lyon</b>.
+                </div>
+                <div class="daily-comp-box" style="border-left-color: #a855f7;">
+                    🚀 <b>Poussée Orbitale :</b> 4 500 kN injectés dans les bronches avec kérosène RP-1.
+                </div>
+            </div>
+
+            <!-- TAB 3: DOSSIER MÉDICAL DU PATIENT -->
+            <div class="tab-pane" id="paneMedical">
+                <div class="comp-card" style="border-color:#b91c1c;">
+                    <div style="font-weight:bold; color:#ef4444; font-size:13px;">DOSSIER PATIENT #404-V8</div>
+                    <div class="comp-row">
+                        <span>Âge Pulmonaire :</span>
+                        <span id="valLungAge" class="comp-val" style="color:#ef4444;">32 ans</span>
+                    </div>
+                    <div class="comp-row">
+                        <span>Espérance de Vie :</span>
+                        <span id="valLifeExpectancy" class="comp-val" style="color:#eab308;">42 ans 8 mois</span>
+                    </div>
+                    <div class="comp-row">
+                        <span>Intoxication Passive Enfant :</span>
+                        <span id="valKidSmokePct" class="comp-val" style="color:#f43f5e;">100% plein visage</span>
+                    </div>
+                </div>
+
+                <div class="panel-title"><span>DÉGRADATION DES ORGANES</span></div>
+                <div class="comp-card">
+                    <div style="font-size:11.5px; display:flex; flex-direction:column; gap:4px;">
+                        <div>🫁 <b>Poumons :</b> <span id="gaugeLungs">100% Rose (0% Goudron)</span></div>
+                        <div>💓 <b>Cœur :</b> <span id="gaugeHeart">Régime nominal (75 BPM)</span></div>
+                        <div>🧠 <b>Cerveau :</b> <span id="gaugeBrain">Oxygénation optimale</span></div>
+                        <div>👅 <b>Langue & Dents :</b> <span id="gaugeTeeth">Saines (blanches)</span></div>
+                        <div>🧬 <b>ADN :</b> <span id="gaugeDna">Stable (0 mutation)</span></div>
+                    </div>
+                </div>
+
+                <button id="btnOpenCert" class="btn" style="background:linear-gradient(90deg, #b45309, #d97706); color:#fff; font-weight:800; padding:10px;">
+                    📜 GÉNÉRER LE CERTIFICAT D'INTOXICATION OFFICIEL
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <footer>
+        HYPERSMOKER 20000™ • Grand Collisionneur CERN 14TeV + Camion Scania V8 + Fusée Saturn V + Cigare Volcanique 2000°C • Tabagisme passif garanti.
+    </footer>
+
+    <script>
+        /* --- RICH AUDIO SYNTHESIZER (ROAR, HORN, TURBO, CERN, CIGAR, COUGH, DEFIB) --- */
+        let audioCtx = null;
+        function getAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        // 1. Truck Horn (Dual Air Horn)
+        function playTruckHorn() {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                [190, 235].forEach(freq => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.01, now);
+                    gain.gain.linearRampToValueAtTime(0.35, now + 0.05);
+                    gain.gain.setValueAtTime(0.35, now + 0.4);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.55);
+                });
+            } catch(e){}
+        }
+
+        // 2. Rocket Launch Roar
+        let rocketNoiseSource = null, rocketGain = null, rocketSubOsc = null;
+        function startRocketSound() {
+            try {
+                const ctx = getAudio();
+                if (rocketGain) return;
+                rocketGain = ctx.createGain();
+                rocketGain.gain.setValueAtTime(0.01, ctx.currentTime);
+                rocketGain.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 0.3);
+
+                rocketSubOsc = ctx.createOscillator();
+                rocketSubOsc.type = 'sawtooth';
+                rocketSubOsc.frequency.setValueAtTime(38, ctx.currentTime);
+
+                const bufferSize = ctx.sampleRate * 2;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) data[i] = (Math.random() * 2 - 1) * 0.8;
+
+                rocketNoiseSource = ctx.createBufferSource();
+                rocketNoiseSource.buffer = buffer;
+                rocketNoiseSource.loop = true;
+
+                const rocketFilter = ctx.createBiquadFilter();
+                rocketFilter.type = 'lowpass';
+                rocketFilter.frequency.setValueAtTime(350, ctx.currentTime);
+
+                rocketSubOsc.connect(rocketGain);
+                rocketNoiseSource.connect(rocketFilter);
+                rocketFilter.connect(rocketGain);
+                rocketGain.connect(ctx.destination);
+                rocketSubOsc.start();
+                rocketNoiseSource.start();
+            } catch(e){}
+        }
+
+        function stopRocketSound() {
+            if (rocketGain && audioCtx) {
+                try {
+                    rocketGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+                    setTimeout(() => {
+                        if (rocketSubOsc) { rocketSubOsc.stop(); rocketSubOsc.disconnect(); rocketSubOsc = null; }
+                        if (rocketNoiseSource) { rocketNoiseSource.stop(); rocketNoiseSource.disconnect(); rocketNoiseSource = null; }
+                        rocketGain = null;
+                    }, 220);
+                } catch(e){}
+            }
+        }
+
+        // 3. Diesel Engine & Turbo Whistle
+        let dieselOsc = null, dieselGain = null;
+        function startTruckEngineSound() {
+            try {
+                const ctx = getAudio();
+                if (dieselOsc) return;
+                dieselOsc = ctx.createOscillator();
+                dieselGain = ctx.createGain();
+                dieselOsc.type = 'sawtooth';
+                dieselOsc.frequency.setValueAtTime(45, ctx.currentTime);
+                dieselGain.gain.setValueAtTime(0.18, ctx.currentTime);
+                dieselOsc.connect(dieselGain);
+                dieselGain.connect(ctx.destination);
+                dieselOsc.start();
+            } catch(e){}
+        }
+
+        let turboWhine = null, turboGain = null;
+        function startTurboWhistle() {
+            try {
+                const ctx = getAudio();
+                if (turboGain) return;
+                turboGain = ctx.createGain();
+                turboGain.gain.setValueAtTime(0.01, ctx.currentTime);
+                turboGain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.3);
+
+                turboWhine = ctx.createOscillator();
+                turboWhine.type = 'sine';
+                turboWhine.frequency.setValueAtTime(500, ctx.currentTime);
+                turboWhine.frequency.exponentialRampToValueAtTime(3200, ctx.currentTime + 1.2);
+
+                turboWhine.connect(turboGain);
+                turboGain.connect(ctx.destination);
+                turboWhine.start();
+            } catch(e){}
+        }
+
+        function stopTurboWhistle() {
+            if (turboGain && audioCtx) {
+                try {
+                    turboGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                    setTimeout(() => {
+                        if (turboWhine) { turboWhine.stop(); turboWhine.disconnect(); turboWhine = null; }
+                        turboGain = null;
+                    }, 120);
+                } catch(e){}
+            }
+            // Dump valve
+            try {
+                const ctx = getAudio();
+                const buf = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < buf.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.05));
+                const s = ctx.createBufferSource(); s.buffer = buf;
+                const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1600;
+                s.connect(f); f.connect(ctx.destination); s.start();
+            } catch(e){}
+        }
+
+        // 4. CERN Collision Sound (High Energy Relativistic Shockwave)
+        function playCernCollisionSound() {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                // High frequency sci-fi laser sweep
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(2400, now);
+                osc.frequency.exponentialRampToValueAtTime(60, now + 0.6);
+
+                gain.gain.setValueAtTime(0.4, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.6);
+
+                // Sub-bass collision thud
+                const sub = ctx.createOscillator();
+                const subGain = ctx.createGain();
+                sub.type = 'sine';
+                sub.frequency.setValueAtTime(90, now);
+                sub.frequency.linearRampToValueAtTime(25, now + 0.8);
+                subGain.gain.setValueAtTime(0.5, now);
+                subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+                sub.connect(subGain);
+                subGain.connect(ctx.destination);
+                sub.start(now);
+                sub.stop(now + 0.8);
+            } catch(e){}
+        }
+
+        // 5. Kid Coughing Sound (High pitched cartoon cough)
+        function playKidCough() {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                for (let i = 0; i < 2; i++) {
+                    const delay = i * 0.18;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(700, now + delay);
+                    osc.frequency.exponentialRampToValueAtTime(320, now + delay + 0.12);
+                    gain.gain.setValueAtTime(0.25, now + delay);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.12);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now + delay);
+                    osc.stop(now + delay + 0.13);
+                }
+            } catch(e){}
+        }
+
+        // 6. Smoker Adult Violent Cough (Deep hacking cough)
+        function playAdultCough() {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                for (let i = 0; i < 3; i++) {
+                    const delay = i * 0.14;
+                    const buf = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+                    const d = buf.getChannelData(0);
+                    for (let j = 0; j < buf.length; j++) d[j] = (Math.random() * 2 - 1) * 0.9;
+                    const s = ctx.createBufferSource(); s.buffer = buf;
+                    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 450;
+                    const g = ctx.createGain();
+                    g.gain.setValueAtTime(0.4, now + delay);
+                    g.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.12);
+                    s.connect(f); f.connect(g); g.connect(ctx.destination);
+                    s.start(now + delay);
+                }
+            } catch(e){}
+        }
+
+        // 7. Defibrillator Shock (Charge + Big Zap)
+        function playDefibSound() {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                // High pitched charge
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(1800, now + 0.8);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.linearRampToValueAtTime(0.3, now + 0.8);
+                gain.gain.setValueAtTime(0, now + 0.82);
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(now); osc.stop(now + 0.82);
+
+                // Discharge ZAP at 0.85s
+                setTimeout(() => {
+                    try {
+                        const zapNow = ctx.currentTime;
+                        const zapBuf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+                        const data = zapBuf.getChannelData(0);
+                        for (let k = 0; k < zapBuf.length; k++) data[k] = (Math.random() * 2 - 1);
+                        const zapSource = ctx.createBufferSource(); zapSource.buffer = zapBuf;
+                        const zapGain = ctx.createGain();
+                        zapGain.gain.setValueAtTime(0.8, zapNow);
+                        zapGain.gain.exponentialRampToValueAtTime(0.001, zapNow + 0.38);
+                        zapSource.connect(zapGain); zapGain.connect(ctx.destination);
+                        zapSource.start(zapNow);
+                    } catch(e){}
+                }, 830);
+            } catch(e){}
+        }
+
+        // 8. Ventoline Spray
+        function playVentolineSound() {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                const buf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+                const d = buf.getChannelData(0);
+                for (let i = 0; i < buf.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (ctx.sampleRate * 0.15));
+                const s = ctx.createBufferSource(); s.buffer = buf;
+                const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 2400;
+                const g = ctx.createGain(); g.gain.setValueAtTime(0.3, now);
+                s.connect(f); f.connect(g); g.connect(ctx.destination);
+                s.start(now);
+            } catch(e){}
+        }
+
+        // 9. ECG Heart Beep
+        function playHeartBeep(isAlarm = false) {
+            try {
+                const ctx = getAudio();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(isAlarm ? 960 : 780, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + (isAlarm ? 0.18 : 0.06));
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.start(now); osc.stop(now + (isAlarm ? 0.19 : 0.07));
+            } catch(e){}
+        }
+
+        /* --- SYSTÈME DES 12 MALADIES ÉVOLUTIVES --- */
+        const DISEASES_DB = [
+            { id: 1, name: "Toux Matinale du Buraliste", icon: "🚬", reqCigs: 5, sev: "Légère", desc: "Raclement de gorge digne d'une mobylette rouillée au starter." },
+            { id: 2, name: "Goudronnage Massif des Alvéoles", icon: "🛢️", reqCigs: 15, sev: "Modérée", desc: "50g de goudron lourd déposé. Les cils vibratiles sont en grève illimitée." },
+            { id: 3, name: "Bronchite Chronique au Gazole 15W40", icon: "🚚", reqCigs: 30, sev: "Sévère", desc: "L'huile de vidange du Scania V8 lubrifie directement la trachée." },
+            { id: 4, name: "Emphysème Turbo à 20 BARS", icon: "⚡", reqBoost: 12, sev: "Critique", desc: "Les alvéoles ont la pression d'un pneu de semi-remorque sur l'A1." },
+            { id: 5, name: "Irradiation Relativiste CERN (14 TeV)", icon: "⚛️", reqCern: 1, sev: "Quantique", desc: "Collision d'ions de nicotine relativiste. Les bronches émettent du rayonnement Cherenkov." },
+            { id: 6, name: "Cancer de la Gorge au Kérosène RP-1", icon: "🚀", reqRocket: 1, sev: "Stade IV", desc: "Cordes vocales fondues par la tuyère spatiale à 2 800°C." },
+            { id: 7, name: "Tachycardie & Arrêt Cardiaque V8", icon: "💓", reqBpm: 195, sev: "Urgence", desc: "Le myocarde tourne à 240 tours/minute. Bielle coulée imminente." },
+            { id: 8, name: "Mutation Génétique Chernobyl Fluo", icon: "🧬", reqCigs: 65, sev: "Bioluminescente", desc: "Votre ADN a muté sous les gaz d'hydrazine, vous brillez la nuit." },
+            { id: 9, name: "Langue Poilue Noire & Dents au Charbon", icon: "👅", reqCigs: 95, sev: "Esthétique", desc: "Papilles gustatives nécrosées de 2 cm. Haleine détectée par satellite." },
+            { id: 10, name: "BPCO Stade IV - Formule 1", icon: "🫁", reqCigs: 130, sev: "Terminale", desc: "Capacité respiratoire : 3%. Bruit de soufflerie à chaque voyelle." },
+            { id: 11, name: "Syndrome de la Tuyère Volcanique (2000°C)", icon: "🔥", reqCigar: 1, sev: "Magmatique", desc: "La lave du cigare transforme les narines en cheminées volcaniques." },
+            { id: 12, name: "Transmutation en Cendrier Vivant", icon: "🏆", reqCigs: 180, sev: "Monument Historique", desc: "Vos organes sont à 100% en cendres consolidées. Bercy vous classe au patrimoine." }
+        ];
+
+        let unlockedDiseases = new Set();
+
+        function renderDiseasesGrid() {
+            const grid = document.getElementById('diseasesGrid');
+            grid.innerHTML = '';
+            DISEASES_DB.forEach(d => {
+                const isUnlocked = unlockedDiseases.has(d.id);
+                const card = document.createElement('div');
+                card.className = `disease-card ${isUnlocked ? 'unlocked' : ''}`;
+                card.innerHTML = `
+                    <div class="disease-header">
+                        <span>${d.icon} ${d.name}</span>
+                        <span class="disease-badge">${isUnlocked ? 'DÉBLOQUÉ ⚠️' : 'VERROUILLÉ 🔒'}</span>
+                    </div>
+                    <div class="disease-desc">${d.desc}</div>
+                    <div style="font-size:10px; color:${isUnlocked ? '#f87171' : '#64748b'}; font-weight:bold;">
+                        Sévérité : ${d.sev}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            document.getElementById('unlockedCountBadge').textContent = `${unlockedDiseases.size} / 12 DÉBLOQUÉES`;
+            document.getElementById('headerDiseasesVal').textContent = `${unlockedDiseases.size} / 12`;
+        }
+
+        function checkDiseaseUnlocks() {
+            let newlyUnlocked = false;
+            DISEASES_DB.forEach(d => {
+                if (!unlockedDiseases.has(d.id)) {
+                    let unlock = false;
+                    if (d.reqCigs && totalCigsBurned >= d.reqCigs) unlock = true;
+                    if (d.reqBoost && currentBoost >= d.reqBoost) unlock = true;
+                    if (d.reqCern && cernCollisionsTriggered >= d.reqCern) unlock = true;
+                    if (d.reqRocket && rocketLaunchesCount >= d.reqRocket) unlock = true;
+                    if (d.reqBpm && currentBpm >= d.reqBpm) unlock = true;
+                    if (d.reqCigar && isCigarModeActive && totalCigsBurned >= 20) unlock = true;
+
+                    if (unlock) {
+                        unlockedDiseases.add(d.id);
+                        newlyUnlocked = true;
+                        addLog(`[PATHOLOGIE] ⚠️ NOUVELLE MALADIE DÉBLOQUÉE : ${d.name} (${d.sev}) !`, 'log-danger');
+                        showComic(`*MALADIE : ${d.name.toUpperCase()} !*`);
+                    }
+                }
+            });
+            if (newlyUnlocked) {
+                renderDiseasesGrid();
+                updateMedicalCert();
+            }
+        }
+
+        /* --- TAR SPLAT ON SCREEN ENGINE (QUAND ON TOUSSE) --- */
+        const tarCanvas = document.getElementById('tarCanvas');
+        const tarCtx = tarCanvas.getContext('2d');
+        let tarSplats = [];
+
+        function resizeTarCanvas() {
+            tarCanvas.width = tarCanvas.parentElement.clientWidth;
+            tarCanvas.height = tarCanvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeTarCanvas);
+        resizeTarCanvas();
+
+        class TarSplat {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.r = 16 + Math.random() * 28;
+                this.alpha = 0.95;
+                this.dripSpeed = 0.4 + Math.random() * 0.8;
+                this.dripLength = 0;
+                this.maxDrip = 35 + Math.random() * 50;
+                this.life = 0;
+            }
+            update() {
+                this.life++;
+                if (this.dripLength < this.maxDrip) {
+                    this.dripLength += this.dripSpeed;
+                }
+                if (this.life > 140) {
+                    this.alpha -= 0.01;
+                }
+            }
+            draw(c) {
+                if (this.alpha <= 0) return;
+                c.save();
+                c.fillStyle = `rgba(20, 14, 10, ${this.alpha})`;
+                c.beginPath();
+                c.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                c.fill();
+                // Drips
+                c.fillRect(this.x - 3, this.y, 6, this.dripLength);
+                c.beginPath();
+                c.arc(this.x, this.y + this.dripLength, 4, 0, Math.PI * 2);
+                c.fill();
+                c.restore();
+            }
+        }
+
+        function triggerTarSplat() {
+            const w = tarCanvas.width, h = tarCanvas.height;
+            for (let i = 0; i < 4; i++) {
+                tarSplats.push(new TarSplat(
+                    w * 0.35 + (Math.random() - 0.5) * (w * 0.4),
+                    h * 0.45 + (Math.random() - 0.5) * (h * 0.3)
+                ));
+            }
+        }
+
+        /* --- ENFANT DU TABAGISME PASSIF (INTERACTION & CRIS) --- */
+        const kidGuy = document.getElementById('kidGuy');
+        const kidBubble = document.getElementById('kidBubble');
+        let kidBubbleTimeout = null;
+
+        const kidQuotes = [
+            "NON ARRÊTE !",
+            "NON ARRÊTE MES POUMONS VONT EXPLOSER !",
+            "MONSIEUR ARRÊTEZ JE VOIS PLUS L'ÉCOLE !",
+            "KOF KOF ! ÇA SENT LE GAZOLE ET LE CERN !",
+            "NON ARRÊTE LE CIGARE À 2000°C !",
+            "ARRÊTEZ MONSIEUR J'ÉTOUFFE !",
+            "POURQUOI Y'A UN CAMION DANS TA BOUCHE ?!",
+            "NON ARRÊTE JE VAIS LE DIRE À MA MÈRE !"
+        ];
+
+        function triggerKidReaction(quoteOverride) {
+            kidGuy.classList.add('coughing');
+            playKidCough();
+            const q = quoteOverride || kidQuotes[Math.floor(Math.random() * kidQuotes.length)];
+            kidBubble.textContent = q;
+            kidBubble.classList.add('active');
+
+            if (kidBubbleTimeout) clearTimeout(kidBubbleTimeout);
+            kidBubbleTimeout = setTimeout(() => {
+                kidBubble.classList.remove('active');
+                kidGuy.classList.remove('coughing');
+            }, 2300);
+        }
+
+        kidGuy.addEventListener('click', () => {
+            triggerKidReaction("MAIS ARRÊTE DE ME FUMER DESSUS !");
+        });
+
+        /* --- DYNAMIC CLOPES & CIGAR DOCK --- */
+        const PACK_PRICE_FRANCE = 13.00;
+        const CIG_PRICE_FRANCE = PACK_PRICE_FRANCE / 20; // 0.65 €
+        const TAX_RATE_FRANCE = 0.83; // 83%
+
+        let totalCigsBurned = 0;
+        let lastLogMilestone = 0;
+        let cernCollisionsTriggered = 0;
+        let rocketLaunchesCount = 0;
+
+        let isCigarModeActive = false;
+        let cigarTemperature = 2000;
+
+        let numCigs = 15;
+        let cigs = [];
+        const flutePipesRow = document.getElementById('flutePipesRow');
+
+        function rebuildPanFlute(count) {
+            numCigs = count;
+            cigs = [];
+            flutePipesRow.innerHTML = '';
+            for (let i = 0; i < count; i++) {
+                const pipeHeight = Math.max(45, Math.round(95 - (i * (55 / Math.max(1, count - 1)))) );
+                const pipe = document.createElement('div');
+                pipe.className = 'pan-tube';
+                pipe.style.height = `${pipeHeight}px`;
+                pipe.innerHTML = `
+                    <div class="flute-cig-slot" id="cig_${i}">
+                        <div class="cig-tip lit" id="tip_${i}"></div>
+                        <div class="cig-body" id="body_${i}"></div>
+                        <div class="cig-filter"></div>
+                    </div>
+                `;
+                flutePipesRow.appendChild(pipe);
+                cigs.push({
+                    id: i,
+                    elTip: pipe.querySelector(`#tip_${i}`),
+                    elBody: pipe.querySelector(`#body_${i}`),
+                    burnProgress: 0
+                });
+            }
+            const costFurnace = (count * CIG_PRICE_FRANCE).toFixed(2);
+            const packFraction = (count / 20).toFixed(1);
+            document.getElementById('valCigCount').textContent = `${count} CLOPES (${costFurnace} € / ${packFraction} paq.)`;
+            document.getElementById('valFluteCost').textContent = `${costFurnace} €`;
+            updateAllHoses();
+        }
+
+        // Toggle Flûte / Cigare Volcanique
+        document.getElementById('btnTabFlute').addEventListener('click', () => {
+            isCigarModeActive = false;
+            document.getElementById('viewFlute').style.display = 'block';
+            document.getElementById('viewCigar').style.display = 'none';
+            document.getElementById('groupSliderFlute').style.display = 'flex';
+            document.getElementById('groupSliderCigar').style.display = 'none';
+            document.getElementById('btnTabFlute').style.background = 'rgba(234, 179, 8, 0.3)';
+            document.getElementById('btnTabCigar').style.background = 'transparent';
+            updateAllHoses();
+        });
+
+        document.getElementById('btnTabCigar').addEventListener('click', () => {
+            isCigarModeActive = true;
+            document.getElementById('viewFlute').style.display = 'none';
+            document.getElementById('viewCigar').style.display = 'flex';
+            document.getElementById('groupSliderFlute').style.display = 'none';
+            document.getElementById('groupSliderCigar').style.display = 'flex';
+            document.getElementById('btnTabCigar').style.background = 'rgba(255, 69, 0, 0.4)';
+            document.getElementById('btnTabFlute').style.background = 'transparent';
+            addLog(`[CIGARE] Cohiba volcanique activé à ${cigarTemperature}°C ! Attention au magma !`, 'log-warn');
+            updateAllHoses();
+        });
+
+        document.getElementById('sliderCigarTemp').addEventListener('input', (e) => {
+            cigarTemperature = parseInt(e.target.value);
+            document.getElementById('valCigarTemp').textContent = `${cigarTemperature.toLocaleString()} °C (${cigarTemperature > 2500 ? 'RÉACTEUR' : (cigarTemperature > 1800 ? 'MAGMA' : 'FUSION')})`;
+            document.getElementById('cigarTempDisplay').textContent = `${cigarTemperature.toLocaleString()} °C`;
+        });
+
+        /* --- TURBO CLUSTER --- */
+        let numTurbos = 1;
+        const turboCluster = document.getElementById('turboCluster');
+        function rebuildTurbos() {
+            turboCluster.innerHTML = '';
+            for (let t = 0; t < numTurbos; t++) {
+                const snail = document.createElement('div');
+                snail.className = 'turbo-snail' + (currentBoost > 5 ? ' glowing' : '');
+                snail.innerHTML = `
+                    <div class="turbo-turbine">
+                        <svg class="turbine-blades" viewBox="0 0 100 100">
+                            <g fill="#ff7700" stroke="#000" stroke-width="2">
+                                <path d="M50,50 L45,10 Q50,0 55,10 Z"/>
+                                <path d="M50,50 L78,22 Q85,29 78,36 Z"/>
+                                <path d="M50,50 L90,45 Q100,50 90,55 Z"/>
+                                <path d="M50,50 L78,78 Q71,85 64,78 Z"/>
+                                <path d="M50,50 L55,90 Q50,100 45,90 Z"/>
+                                <path d="M50,50 L22,78 Q15,71 22,64 Z"/>
+                                <path d="M50,50 L10,55 Q0,50 10,45 Z"/>
+                                <path d="M50,50 L22,22 Q29,15 36,22 Z"/>
+                            </g>
+                        </svg>
+                    </div>
+                `;
+                turboCluster.appendChild(snail);
+            }
+        }
+
+        /* --- MISE À JOUR DES 4 TUYAUX VERS LA BOUCHE --- */
+        function updateAllHoses() {
+            try {
+                const stage = document.getElementById('stageContainer').getBoundingClientRect();
+                const mouth = document.getElementById('dudeMouth').getBoundingClientRect();
+                const mouthX = (mouth.left - stage.left) + mouth.width * 0.5;
+                const mouthY = (mouth.top - stage.top) + mouth.height * 0.5;
+
+                // 1. Flûte ou Cigare vers Bouche
+                let sourceX, sourceY;
+                if (!isCigarModeActive) {
+                    const flute = document.getElementById('tobaccoDock').getBoundingClientRect();
+                    sourceX = (flute.left - stage.left) + flute.width * 0.8;
+                    sourceY = (flute.top - stage.top) + flute.height;
+                } else {
+                    const cigTip = document.getElementById('cigarConnectorTip').getBoundingClientRect();
+                    sourceX = (cigTip.left - stage.left) + 5;
+                    sourceY = (cigTip.top - stage.top) + 5;
+                }
+                const dFlute = `M ${sourceX},${sourceY} C ${sourceX + 40},${sourceY + 70} ${mouthX - 70},${mouthY - 60} ${mouthX - 25},${mouthY}`;
+                document.getElementById('hoseFluteOuter').setAttribute('d', dFlute);
+                document.getElementById('hoseFluteCore').setAttribute('d', dFlute);
+
+                // 2. Camion Scania V8 vers Bouche
+                const truck = document.getElementById('truckUnit').getBoundingClientRect();
+                const truckX = (truck.left - stage.left) + 25;
+                const truckY = (truck.top - stage.top) + 20;
+                const dTruck = `M ${truckX},${truckY} C ${truckX - 40},${truckY + 90} ${mouthX + 70},${mouthY - 60} ${mouthX + 22},${mouthY}`;
+                document.getElementById('hoseTruckOuter').setAttribute('d', dTruck);
+                document.getElementById('hoseTruckCore').setAttribute('d', dTruck);
+
+                // 3. FUSÉE Spatiale vers Bouche
+                const rocket = document.getElementById('rocketUnit').getBoundingClientRect();
+                const rocketX = (rocket.left - stage.left) + rocket.width * 0.5;
+                const rocketY = (rocket.top - stage.top) + rocket.height * 0.85;
+                const dRocket = `M ${rocketX},${rocketY} C ${rocketX},${rocketY + 50} ${mouthX - 10},${mouthY - 50} ${mouthX - 10},${mouthY}`;
+                document.getElementById('hoseRocketShadow').setAttribute('d', dRocket);
+                document.getElementById('hoseRocketOuter').setAttribute('d', dRocket);
+                document.getElementById('hoseRocketCore').setAttribute('d', dRocket);
+
+                // 4. CERN FAISCEAU RELATIVISTE VERS BOUCHE
+                const cernNozzle = document.getElementById('cernExhaustNozzle').getBoundingClientRect();
+                const cernX = (cernNozzle.left - stage.left) + 5;
+                const cernY = (cernNozzle.top - stage.top) + 5;
+                const dCern = `M ${cernX},${cernY} C ${cernX + 30},${cernY + 80} ${mouthX + 6},${mouthY - 70} ${mouthX + 6},${mouthY}`;
+                document.getElementById('hoseCernOuter').setAttribute('d', dCern);
+                document.getElementById('hoseCernCore').setAttribute('d', dCern);
+            } catch(e){}
+        }
+        window.addEventListener('resize', updateAllHoses);
+
+        /* --- MOTEUR DE PARTICULES (FUMÉE, CERN, CENDRES, ÉTINCELLES) --- */
+        const canvas = document.getElementById('smokeCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let smokeRings = [];
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            updateAllHoses();
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class SmokeParticle {
+            constructor(x, y, vx, vy, size, alpha, type = 'normal') {
+                this.x = x; this.y = y;
+                this.vx = vx; this.vy = vy;
+                this.size = size;
+                this.maxSize = size * (type === 'rocket' ? 6.5 : (type === 'cern' ? 3.5 : (type === 'cigar' ? 7.0 : (type === 'diesel' ? 5.5 : (type === 'ash' ? 1.0 : 4.0)))));
+                this.alpha = alpha;
+                this.initialAlpha = alpha;
+                this.rotation = Math.random() * Math.PI * 2;
+                this.vRot = (Math.random() - 0.5) * 0.04;
+                this.life = 0;
+                this.maxLife = type === 'ash' ? 70 + Math.random() * 40 : (type === 'cern' ? 50 + Math.random() * 30 : 110 + Math.random() * 80);
+                this.type = type;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.type === 'ash') {
+                    this.vy += 0.15;
+                }
+                this.size += (this.maxSize - this.size) * 0.025;
+                this.rotation += this.vRot;
+                this.life++;
+                this.alpha = this.initialAlpha * (1 - this.life / this.maxLife);
+            }
+
+            draw(c) {
+                if (this.alpha <= 0) return;
+                c.save();
+                c.translate(this.x, this.y);
+                c.rotate(this.rotation);
+
+                if (this.type === 'ash') {
+                    c.fillStyle = `rgba(255, 120, 20, ${this.alpha * 0.9})`;
+                    c.beginPath();
+                    c.arc(0, 0, this.size, 0, Math.PI * 2);
+                    c.fill();
+                    c.restore();
+                    return;
+                }
+
+                const grad = c.createRadialGradient(0, 0, 0, 0, 0, this.size);
+                if (this.type === 'cern') {
+                    // Relativistic glowing blue / violet quantum smoke
+                    grad.addColorStop(0, `rgba(56, 189, 248, ${this.alpha * 0.95})`);
+                    grad.addColorStop(0.3, `rgba(147, 51, 234, ${this.alpha * 0.8})`);
+                    grad.addColorStop(0.7, `rgba(2, 132, 199, ${this.alpha * 0.4})`);
+                    grad.addColorStop(1, `rgba(0, 0, 40, 0)`);
+                } else if (this.type === 'cigar') {
+                    // Super dense volcanic cigar smoke with ember sparks
+                    grad.addColorStop(0, `rgba(255, 140, 40, ${this.alpha * 0.95})`);
+                    grad.addColorStop(0.3, `rgba(80, 50, 40, ${this.alpha * 0.85})`);
+                    grad.addColorStop(0.7, `rgba(30, 25, 25, ${this.alpha * 0.6})`);
+                    grad.addColorStop(1, `rgba(10, 10, 10, 0)`);
+                } else if (this.type === 'rocket') {
+                    grad.addColorStop(0, `rgba(255, 230, 100, ${this.alpha * 0.95})`);
+                    grad.addColorStop(0.25, `rgba(255, 60, 0, ${this.alpha * 0.85})`);
+                    grad.addColorStop(0.65, `rgba(147, 51, 234, ${this.alpha * 0.4})`);
+                    grad.addColorStop(1, `rgba(50, 0, 50, 0)`);
+                } else if (this.type === 'diesel') {
+                    grad.addColorStop(0, `rgba(20, 24, 33, ${this.alpha * 0.95})`);
+                    grad.addColorStop(0.5, `rgba(45, 55, 72, ${this.alpha * 0.7})`);
+                    grad.addColorStop(1, `rgba(15, 20, 25, 0)`);
+                } else {
+                    grad.addColorStop(0, `rgba(225, 230, 240, ${this.alpha * 0.8})`);
+                    grad.addColorStop(0.5, `rgba(180, 185, 195, ${this.alpha * 0.45})`);
+                    grad.addColorStop(1, `rgba(140, 145, 155, 0)`);
+                }
+
+                c.fillStyle = grad;
+                c.beginPath();
+                c.arc(0, 0, this.size, 0, Math.PI * 2);
+                c.fill();
+                c.restore();
+            }
+        }
+
+        class SmokeRing {
+            constructor(x, y, vx, vy) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy;
+                this.radius = 20; this.thickness = 10; this.alpha = 0.9;
+                this.life = 0; this.maxLife = 120;
+            }
+            update() {
+                this.x += this.vx; this.y += this.vy;
+                this.radius += 0.5; this.life++;
+                this.alpha = 0.9 * (1 - this.life / this.maxLife);
+            }
+            draw(c) {
+                if (this.alpha <= 0) return;
+                c.save();
+                c.beginPath();
+                c.ellipse(this.x, this.y, this.radius, this.radius * 0.6, 0.1, 0, Math.PI * 2);
+                c.strokeStyle = `rgba(240, 245, 255, ${this.alpha * 0.8})`;
+                c.lineWidth = this.thickness;
+                c.stroke();
+                c.restore();
+            }
+        }
+
+        /* --- MONITEUR CARDIAQUE ECG (OSCILLOSCOPE CANVAS) --- */
+        const ecgCanvas = document.getElementById('ecgCanvas');
+        const ecgCtx = ecgCanvas.getContext('2d');
+        ecgCanvas.width = 360;
+        ecgCanvas.height = 75;
+
+        let ecgPoints = [];
+        let ecgTime = 0;
+        let currentBpm = 75;
+        let currentSpo2 = 99;
+        let tarAccumulatedGrams = 0;
+        let isCardiacArrest = false;
+
+        function updateEcg() {
+            ecgCtx.fillStyle = 'rgba(2, 7, 14, 0.15)';
+            ecgCtx.fillRect(0, 0, ecgCanvas.width, ecgCanvas.height);
+
+            const midY = ecgCanvas.height / 2;
+            let val = 0;
+
+            if (!isCardiacArrest) {
+                const beatPeriod = 60 / currentBpm;
+                const cyclePos = (ecgTime % beatPeriod) / beatPeriod;
+
+                if (cyclePos > 0.1 && cyclePos < 0.18) {
+                    val = -4 * Math.sin((cyclePos - 0.1) / 0.08 * Math.PI); // P wave
+                } else if (cyclePos >= 0.22 && cyclePos < 0.25) {
+                    val = 6; // Q dip
+                } else if (cyclePos >= 0.25 && cyclePos < 0.30) {
+                    val = -30 * Math.sin((cyclePos - 0.25) / 0.05 * Math.PI); // R spike!
+                } else if (cyclePos >= 0.30 && cyclePos < 0.34) {
+                    val = 8; // S dip
+                } else if (cyclePos >= 0.42 && cyclePos < 0.58) {
+                    val = -7 * Math.sin((cyclePos - 0.42) / 0.16 * Math.PI); // T wave
+                }
+            }
+
+            ecgPoints.push(midY + val);
+            if (ecgPoints.length > ecgCanvas.width) ecgPoints.shift();
+
+            ecgCtx.strokeStyle = isCardiacArrest ? '#ef4444' : '#10b981';
+            ecgCtx.lineWidth = 2;
+            ecgCtx.shadowColor = isCardiacArrest ? '#ef4444' : '#10b981';
+            ecgCtx.shadowBlur = 8;
+            ecgCtx.beginPath();
+            for (let i = 0; i < ecgPoints.length; i++) {
+                if (i === 0) ecgCtx.moveTo(i, ecgPoints[i]);
+                else ecgCtx.lineTo(i, ecgPoints[i]);
+            }
+            ecgCtx.stroke();
+            ecgCtx.shadowBlur = 0;
+        }
+
+        /* --- TABS SYSTEM --- */
+        const tabs = [
+            { btn: 'tabBtnDiseases', pane: 'paneDiseases' },
+            { btn: 'tabBtnBudget', pane: 'paneBudget' },
+            { btn: 'tabBtnMedical', pane: 'paneMedical' }
+        ];
+
+        tabs.forEach(t => {
+            document.getElementById(t.btn).addEventListener('click', () => {
+                tabs.forEach(o => {
+                    document.getElementById(o.btn).classList.remove('active');
+                    document.getElementById(o.pane).classList.remove('active');
+                });
+                document.getElementById(t.btn).classList.add('active');
+                document.getElementById(t.pane).classList.add('active');
+            });
+        });
+
+        /* --- GAME CONTROLS & LISTENERS --- */
+        let isInhaling = false;
+        let isRocketFiring = false;
+        let isAutoSmoke = false;
+        let isXrayActive = false;
+        let currentBoost = 0;
+
+        const sliderCigCount = document.getElementById('sliderCigCount');
+        const sliderBoost = document.getElementById('sliderBoost');
+
+        sliderCigCount.addEventListener('input', (e) => {
+            rebuildPanFlute(parseInt(e.target.value));
+        });
+
+        sliderBoost.addEventListener('input', (e) => {
+            document.getElementById('valBoostSetting').textContent = `${parseFloat(e.target.value).toFixed(1)} BARS`;
+        });
+
+        // Bouton Collision CERN (14 TeV)
+        document.getElementById('btnCernCollision').addEventListener('click', () => {
+            cernCollisionsTriggered++;
+            playCernCollisionSound();
+            const energy = document.getElementById('sliderCern').value;
+            addLog(`[CERN] 💥 COLLISION HADRONIQUE À ${energy} TeV ! Boson de Higgs au goudron détecté !`, 'log-cern');
+
+            // Flasher le détecteur CERN
+            const spark = document.getElementById('cernCollisionSpark');
+            spark.setAttribute('fill', '#ffffff');
+            spark.setAttribute('r', '14');
+            setTimeout(() => { spark.setAttribute('fill', '#f43f5e'); spark.setAttribute('r', '6'); }, 300);
+
+            // Relativistic synchrotron sparks towards mouth
+            const cernNozzle = document.getElementById('cernExhaustNozzle').getBoundingClientRect();
+            const stage = canvas.getBoundingClientRect();
+            const cernX = (cernNozzle.left - stage.left) + 5;
+            const cernY = (cernNozzle.top - stage.top) + 5;
+
+            for (let i = 0; i < 40; i++) {
+                particles.push(new SmokeParticle(
+                    cernX + (Math.random() - 0.5) * 10,
+                    cernY + (Math.random() - 0.5) * 10,
+                    Math.random() * 8 + 2,
+                    Math.random() * 8 + 2,
+                    14 + Math.random() * 12,
+                    0.95,
+                    'cern'
+                ));
+            }
+            showComic("*COLLISION CERN 14 TeV DANS LES BRONCHES !*");
+            triggerKidReaction("NON ARRÊTE LE COLLISIONNEUR MONSIEUR !");
+            checkDiseaseUnlocks();
+        });
+
+        // Bouton Klaxon Scania
+        document.getElementById('btnTruckHorn').addEventListener('click', () => {
+            playTruckHorn();
+            addLog("[KLAXON] POUËËËËT ! Le Scania V8 réveille tout le quartier !", "log-warn");
+            triggerKidReaction("ARRÊTE LE KLAXON MONSIEUR !");
+        });
+
+        // Bouton Fusée Spatiale
+        const btnFireRocket = document.getElementById('btnFireRocket');
+        btnFireRocket.addEventListener('click', () => {
+            isRocketFiring = !isRocketFiring;
+            btnFireRocket.classList.toggle('active', isRocketFiring);
+            const rocketEl = document.getElementById('rocketUnit');
+
+            if (isRocketFiring) {
+                rocketLaunchesCount++;
+                rocketEl.classList.add('firing');
+                startRocketSound();
+                addLog("[FUSÉE] ALLUMAGE TUYÈRE ! Poussée de 4 500 kN injectée dans le tuyau !", "log-danger");
+                triggerKidReaction("ARRÊTE LA FUSÉE MES OREILLES FONDENT !");
+            } else {
+                rocketEl.classList.remove('firing');
+                stopRocketSound();
+                addLog("[FUSÉE] Extinction des propulseurs à poudre.", "log-warn");
+            }
+            checkDiseaseUnlocks();
+        });
+
+        // Ajouter Turbo
+        document.getElementById('btnAddTurbo').addEventListener('click', () => {
+            if (numTurbos < 6) {
+                numTurbos++;
+                rebuildTurbos();
+                addLog(`[TURBO] Turbo #${numTurbos} installé ! Pression accrue.`, "log-good");
+            }
+        });
+
+        // Auto-Smoke Toggle
+        const btnAutoSmoke = document.getElementById('btnAutoSmoke');
+        function toggleAutoSmoke() {
+            isAutoSmoke = !isAutoSmoke;
+            btnAutoSmoke.classList.toggle('active', isAutoSmoke);
+            btnAutoSmoke.textContent = isAutoSmoke ? "🔄 FUMEUR AUTO : ON" : "🔄 FUMEUR AUTO : OFF";
+            if (isAutoSmoke) startInhale();
+            else stopInhale();
+        }
+        btnAutoSmoke.addEventListener('click', toggleAutoSmoke);
+        document.getElementById('hudAuto').addEventListener('click', toggleAutoSmoke);
+
+        // Rayons-X Toggle
+        function toggleXray() {
+            isXrayActive = !isXrayActive;
+            const xrayGroup = document.getElementById('xrayGroup');
+            const smokerGuy = document.getElementById('smokerGuy');
+            const pilotShirt = document.getElementById('pilotShirt');
+
+            if (isXrayActive) {
+                xrayGroup.style.opacity = '1';
+                smokerGuy.classList.add('xray-active');
+                pilotShirt.setAttribute('fill', 'rgba(15, 23, 42, 0.4)');
+                addLog("[SCANNER] Vue Rayons-X thoracique activée !", "log-cern");
+            } else {
+                xrayGroup.style.opacity = '0';
+                smokerGuy.classList.remove('xray-active');
+                pilotShirt.setAttribute('fill', '#1e293b');
+                addLog("[SCANNER] Vue normale rétablie.", "log-warn");
+            }
+            document.getElementById('btnToggleXray').classList.toggle('active', isXrayActive);
+            document.getElementById('hudXray').classList.toggle('active', isXrayActive);
+        }
+        document.getElementById('btnToggleXray').addEventListener('click', toggleXray);
+        document.getElementById('hudXray').addEventListener('click', toggleXray);
+
+        // Défibrillateur 50kV (D)
+        function triggerDefibrillator() {
+            playDefibSound();
+            const flash = document.getElementById('defibFlash');
+            setTimeout(() => {
+                flash.classList.add('flashing');
+                isCardiacArrest = false;
+                currentBpm = 85;
+                currentSpo2 = Math.min(98, currentSpo2 + 35);
+                document.getElementById('ecgStatusLabel').textContent = "RÉANIMÉ (SINUSAL)";
+                document.getElementById('ecgStatusLabel').style.color = "#4ade80";
+                showComic("*CLEAR ! 50 000 VOLTS DANS LE CŒUR !*");
+                addLog("[DÉFIBRILLATEUR] Choc 50 kV appliqué ! Rythme sinusal rétabli.", "log-good");
+                setTimeout(() => flash.classList.remove('flashing'), 180);
+            }, 840);
+        }
+        document.getElementById('btnDefib').addEventListener('click', triggerDefibrillator);
+        document.getElementById('hudDefib').addEventListener('click', triggerDefibrillator);
+
+        // Toux Sismique & Crachat de Glaire (C)
+        function triggerSeismicCough() {
+            playAdultCough();
+            triggerTarSplat();
+            document.getElementById('smokerGuy').classList.add('coughing');
+            setTimeout(() => document.getElementById('smokerGuy').classList.remove('coughing'), 600);
+            showComic("*KRAAAH ! CRACHAT DE GOUDRON 15W40 !*");
+            addLog("[TOUX] Quinte de toux dévastatrice ! Glaire de suie projetée sur la vitre.", "log-warn");
+            triggerKidReaction("MONSIEUR TU CRACHES DU GOUDRON SUR L'ÉCRAN !");
+        }
+        document.getElementById('btnCough').addEventListener('click', triggerSeismicCough);
+        document.getElementById('hudCough').addEventListener('click', triggerSeismicCough);
+
+        // Ventoline V8 (V)
+        function triggerVentoline() {
+            playVentolineSound();
+            currentSpo2 = Math.min(99, currentSpo2 + 25);
+            addLog("[VENTOLINE] Bouffée de Ventoline V8 ! Dilatation des bronches suralimentées.", "log-good");
+            showComic("*PSHHHT ! VENTOLINE V8 DANS LA GORGE !*");
+        }
+        document.getElementById('btnVentoline').addEventListener('click', triggerVentoline);
+
+        // Vidange d'huile
+        document.getElementById('btnOilDrain').addEventListener('click', () => {
+            tarAccumulatedGrams = Math.max(0, tarAccumulatedGrams - 45);
+            addLog("[VIDANGE] Vanne de purge ouverte : 2 litres d'huile de vidange et mégots évacués !", "log-good");
+            showComic("*GLOU GLOU ! VIDANGE DES POUMONS !*");
+        });
+
+        // Ronds de fumée (O)
+        document.getElementById('btnRings').addEventListener('click', () => {
+            const mouth = document.getElementById('dudeMouth').getBoundingClientRect();
+            const stage = canvas.getBoundingClientRect();
+            const mouthX = (mouth.left - stage.left) + mouth.width * 0.5;
+            const mouthY = (mouth.top - stage.top) + mouth.height * 0.5;
+            smokeRings.push(new SmokeRing(mouthX - 10, mouthY, -6.0, 0));
+        });
+
+        // Tapoter Cendre
+        document.getElementById('btnAsh').addEventListener('click', () => {
+            const stage = canvas.getBoundingClientRect();
+            if (!isCigarModeActive) {
+                cigs.forEach(c => {
+                    const tip = c.elTip.getBoundingClientRect();
+                    const tipX = (tip.left - stage.left) + tip.width * 0.5;
+                    const tipY = tip.top - stage.top + tip.height;
+                    for (let i = 0; i < 3; i++) {
+                        particles.push(new SmokeParticle(tipX + (Math.random() - 0.5) * 8, tipY, (Math.random() - 0.5) * 2, Math.random() * 2 + 1, 2 + Math.random() * 2, 0.9, 'ash'));
+                    }
+                });
+            } else {
+                const hotTip = document.getElementById('cigarHotTip').getBoundingClientRect();
+                const tipX = (hotTip.left - stage.left) + 10;
+                const tipY = (hotTip.top - stage.top) + 15;
+                for (let i = 0; i < 15; i++) {
+                    particles.push(new SmokeParticle(tipX + (Math.random() - 0.5) * 15, tipY, (Math.random() - 0.5) * 3, Math.random() * 3 + 2, 3 + Math.random() * 3, 0.95, 'ash'));
+                }
+            }
+            showComic("*13€ LE PAQUET, FAIS GAFFE AUX CENDRES !*");
+            triggerKidReaction("ARRÊTE LES CENDRES ÇA BRÛLE !");
+        });
+
+        // HUD buttons
+        document.getElementById('hudCern').addEventListener('click', () => document.getElementById('btnCernCollision').click());
+
+        // Modal Certificat
+        document.getElementById('btnOpenCert').addEventListener('click', () => {
+            updateMedicalCert();
+            document.getElementById('certModal').classList.add('active');
+        });
+
+        function updateMedicalCert() {
+            document.getElementById('certCigs').textContent = `${Math.floor(totalCigsBurned)} cigarettes`;
+            document.getElementById('certCost').textContent = `${(totalCigsBurned * CIG_PRICE_FRANCE).toFixed(2)} €`;
+            document.getElementById('certTaxes').textContent = `${(totalCigsBurned * CIG_PRICE_FRANCE * TAX_RATE_FRANCE).toFixed(2)} €`;
+            document.getElementById('certTar').textContent = `${tarAccumulatedGrams.toFixed(1)} g`;
+            document.getElementById('certCern').textContent = `${(cernCollisionsTriggered * 13.6).toFixed(1)} TeV`;
+
+            const lungAge = Math.min(160, Math.floor(30 + totalCigsBurned * 0.65));
+            document.getElementById('certLungAge').textContent = `${lungAge} ans`;
+            document.getElementById('valLungAge').textContent = `${lungAge} ans`;
+
+            const list = document.getElementById('certDiseasesList');
+            list.innerHTML = '';
+            if (unlockedDiseases.size === 0) {
+                list.innerHTML = '<li>Aucune pathologie contractée (sujet encore vivant)</li>';
+            } else {
+                DISEASES_DB.forEach(d => {
+                    if (unlockedDiseases.has(d.id)) {
+                        const li = document.createElement('li');
+                        li.textContent = `${d.icon} ${d.name} (${d.sev}) : ${d.desc}`;
+                        list.appendChild(li);
+                    }
+                });
+            }
+        }
+
+        // Bulle de BD Comic
+        const comicBubble = document.getElementById('comicBubble');
+        let bubbleTimeout = null;
+        function showComic(text) {
+            if (!comicBubble) return;
+            comicBubble.textContent = text;
+            comicBubble.classList.add('active');
+            if (bubbleTimeout) clearTimeout(bubbleTimeout);
+            bubbleTimeout = setTimeout(() => comicBubble.classList.remove('active'), 2200);
+        }
+
+        function addLog(msg, type = '') {
+            const box = document.getElementById('logBox');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const time = new Date().toLocaleTimeString('fr-FR', { hour12: false });
+            entry.textContent = `[${time}] ${msg}`;
+            box.appendChild(entry);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        // Inhale handling
+        function startInhale() {
+            isInhaling = true;
+            document.getElementById('btnInhale').classList.add('active');
+            document.getElementById('smokerGuy').classList.add('inhaling');
+            document.getElementById('stageContainer').classList.add('rumble');
+            startTurboWhistle();
+            startTruckEngineSound();
+            if (isRocketFiring) startRocketSound();
+            cigs.forEach(c => c.elTip.classList.add('puffing'));
+
+            // L'enfant commence à tousser si inhalation prolongée
+            if (Math.random() < 0.6) {
+                triggerKidReaction();
+            }
+        }
+
+        function stopInhale() {
+            if (isAutoSmoke) return;
+            if (!isInhaling) return;
+            isInhaling = false;
+            document.getElementById('btnInhale').classList.remove('active');
+            document.getElementById('smokerGuy').classList.remove('inhaling');
+            document.getElementById('stageContainer').classList.remove('rumble');
+            stopTurboWhistle();
+            if (!isRocketFiring) stopRocketSound();
+            cigs.forEach(c => c.elTip.classList.remove('puffing'));
+
+            // Spout massive cloud from mouth directly at the kid
+            const mouth = document.getElementById('dudeMouth').getBoundingClientRect();
+            const stage = canvas.getBoundingClientRect();
+            const mouthX = (mouth.left - stage.left) + mouth.width * 0.5;
+            const mouthY = (mouth.top - stage.top) + mouth.height * 0.5;
+
+            for (let i = 0; i < 70; i++) {
+                particles.push(new SmokeParticle(
+                    mouthX + (Math.random() - 0.5) * 20,
+                    mouthY + (Math.random() - 0.5) * 20,
+                    (Math.random() * 8 + 3), // Blasts to the right straight at the kid!
+                    (Math.random() - 0.5) * 4.5,
+                    28 + Math.random() * 24,
+                    0.9,
+                    isCigarModeActive ? 'cigar' : (isRocketFiring ? 'rocket' : 'diesel')
+                ));
+            }
+
+            if (Math.random() < 0.5) triggerKidReaction("KOF KOF ! TOUT DANS MA TÊTE !");
+        }
+
+        const btnInhale = document.getElementById('btnInhale');
+        btnInhale.addEventListener('mousedown', startInhale);
+        window.addEventListener('mouseup', () => { if (!isAutoSmoke) stopInhale(); });
+        btnInhale.addEventListener('touchstart', (e) => { e.preventDefault(); startInhale(); });
+        window.addEventListener('touchend', () => { if (!isAutoSmoke) stopInhale(); });
+
+        // Keyboard shortcuts
+        window.addEventListener('keydown', (e) => {
+            if (document.activeElement.tagName === 'INPUT') return;
+            if (e.code === 'Space' && !e.repeat) { e.preventDefault(); startInhale(); }
+            else if (e.code === 'KeyC' && !e.repeat) triggerSeismicCough();
+            else if (e.code === 'KeyD' && !e.repeat) triggerDefibrillator();
+            else if (e.code === 'KeyV' && !e.repeat) triggerVentoline();
+            else if (e.code === 'KeyX' && !e.repeat) toggleXray();
+            else if (e.code === 'KeyO' && !e.repeat) document.getElementById('btnRings').click();
+            else if (e.code === 'KeyH' && !e.repeat) playTruckHorn();
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' && !isAutoSmoke) { e.preventDefault(); stopInhale(); }
+        });
+
+        // Initialize Pan Flute, Turbos & Diseases
+        rebuildPanFlute(15);
+        rebuildTurbos();
+        renderDiseasesGrid();
+        setTimeout(updateAllHoses, 200);
+
+        /* --- PERMANENT LOOP --- */
+        let lastTime = performance.now();
+        let ecgBeatTimer = 0;
+
+        function renderLoop(now) {
+            const dt = (now - lastTime) / 1000;
+            lastTime = now;
+            ecgTime += dt;
+
+            const maxBoost = parseFloat(sliderBoost.value);
+            if (isInhaling) {
+                currentBoost = Math.min(maxBoost, currentBoost + 8.0 * dt);
+                currentBpm = Math.min(240, currentBpm + 25.0 * dt);
+                currentSpo2 = Math.max(8, currentSpo2 - 12.0 * dt);
+            } else {
+                currentBoost = Math.max(0, currentBoost - 6.0 * dt);
+                currentBpm = Math.max(75, currentBpm - 15.0 * dt);
+                currentSpo2 = Math.min(99, currentSpo2 + 10.0 * dt);
+            }
+
+            if (currentSpo2 < 15 && !isCardiacArrest) {
+                isCardiacArrest = true;
+                currentBpm = 0;
+                document.getElementById('ecgStatusLabel').textContent = "ARRÊT CARDIAQUE (FLATLINE)";
+                document.getElementById('ecgStatusLabel').style.color = "#ef4444";
+                addLog("[URGENCE] ARRÊT CARDIAQUE ! Utilisez le défibrillateur (D) !", "log-danger");
+                showComic("*ARRÊT CARDIAQUE ! DÉFIB (D) !*");
+            }
+
+            // ECG Beep
+            ecgBeatTimer += dt;
+            if (!isCardiacArrest && currentBpm > 0) {
+                const beatInterval = 60 / currentBpm;
+                if (ecgBeatTimer >= beatInterval) {
+                    ecgBeatTimer = 0;
+                    playHeartBeep(currentBpm > 180);
+                    // Pulse anatomical heart
+                    const heartEl = document.getElementById('xrayHeart');
+                    if (heartEl) {
+                        heartEl.style.transform = 'scale(1.25)';
+                        setTimeout(() => heartEl.style.transform = 'scale(1)', 100);
+                    }
+                }
+            }
+
+            updateEcg();
+
+            // Header & Gauges values
+            document.getElementById('headerBpmVal').textContent = `${Math.round(currentBpm)} BPM`;
+            document.getElementById('valBpm').textContent = `${Math.round(currentBpm)} BPM`;
+            document.getElementById('headerSpo2Val').textContent = `${Math.round(currentSpo2)}%`;
+            document.getElementById('valSpo2').textContent = `${Math.round(currentSpo2)}%`;
+            document.getElementById('valAlveolarPressure').textContent = `${(1.0 + currentBoost).toFixed(1)} Bars`;
+
+            // Financial & Smoke consumption
+            const burnSpeed = (isInhaling ? 0.35 : 0.05);
+            const cigsEquivalent = (isCigarModeActive ? 4.5 : 1.0);
+            const burnedThisFrame = numCigs * burnSpeed * cigsEquivalent * dt;
+            totalCigsBurned += burnedThisFrame;
+            tarAccumulatedGrams += burnedThisFrame * 0.045; // ~45mg of tar per unit + V8 soot
+
+            document.getElementById('valTarAccumulated').textContent = `${tarAccumulatedGrams.toFixed(1)} g`;
+
+            const totalCost = totalCigsBurned * CIG_PRICE_FRANCE;
+            const totalPacks = totalCigsBurned / 20;
+            const totalTaxes = totalCost * TAX_RATE_FRANCE;
+
+            document.getElementById('valTotalCost').textContent = `${totalCost.toFixed(2)} €`;
+            document.getElementById('headerTotalCost').textContent = `${totalCost.toFixed(2)} €`;
+            document.getElementById('valPacksBurned').textContent = `${totalPacks.toFixed(2)} paquets`;
+            document.getElementById('valTaxesPaid').textContent = `${totalTaxes.toFixed(2)} €`;
+
+            // Comparaisons
+            document.getElementById('valKebabCount').textContent = (totalCost / 8.50).toFixed(1);
+            document.getElementById('valSmicPercent').textContent = `${((totalCost / 1426.0) * 100).toFixed(2)}%`;
+
+            // Dynamically change lung color in X-Ray (Pink -> Gray -> Brown -> Black)
+            const lungProgress = Math.min(1.0, tarAccumulatedGrams / 50.0);
+            const r = Math.round(244 * (1 - lungProgress) + 15 * lungProgress);
+            const g = Math.round(114 * (1 - lungProgress) + 20 * lungProgress);
+            const b = Math.round(182 * (1 - lungProgress) + 30 * lungProgress);
+            const lungColor = `rgb(${r}, ${g}, ${b})`;
+            const lLeft = document.getElementById('xrayLungLeft');
+            const lRight = document.getElementById('xrayLungRight');
+            if (lLeft) lLeft.setAttribute('fill', lungColor);
+            if (lRight) lRight.setAttribute('fill', lungColor);
+
+            // Organ status text
+            document.getElementById('gaugeLungs').textContent = `${Math.min(100, Math.floor(lungProgress * 100))}% Goudron & Calamine`;
+            document.getElementById('gaugeHeart').textContent = isCardiacArrest ? "ARRÊT MORTEL (0 BPM)" : `${Math.round(currentBpm)} BPM (${currentBpm > 180 ? 'Surchauffe' : 'Nominal'})`;
+            document.getElementById('gaugeBrain').textContent = `SpO2 ${Math.round(currentSpo2)}% (${currentSpo2 < 40 ? 'Anoxie critique' : 'Normal'})`;
+
+            checkDiseaseUnlocks();
+
+            // EMISSION DE PARTICULES
+            const mouth = document.getElementById('dudeMouth').getBoundingClientRect();
+            const stage = canvas.getBoundingClientRect();
+            const mouthX = (mouth.left - stage.left) + mouth.width * 0.5;
+            const mouthY = (mouth.top - stage.top) + mouth.height * 0.5;
+
+            // 1. Fusée exhaust
+            const rocket = document.getElementById('rocketUnit').getBoundingClientRect();
+            const rocketX = (rocket.left - stage.left) + rocket.width * 0.5;
+            const rocketY = (rocket.top - stage.top) + rocket.height * 0.85;
+            if (isRocketFiring || isInhaling) {
+                const count = isRocketFiring ? 4 : 1;
+                for (let r = 0; r < count; r++) {
+                    particles.push(new SmokeParticle(rocketX + (Math.random() - 0.5) * 16, rocketY, (Math.random() - 0.5) * 3, Math.random() * 5 + 2, 24 + Math.random() * 20, 0.9, 'rocket'));
+                }
+            }
+
+            // 2. Camion V8 exhaust
+            const truck = document.getElementById('truckUnit').getBoundingClientRect();
+            const truckX = (truck.left - stage.left) + 25;
+            const truckY = (truck.top - stage.top) + 15;
+            for (let t = 0; t < (isInhaling ? 5 : 2); t++) {
+                particles.push(new SmokeParticle(truckX + (Math.random() - 0.5) * 6, truckY, (Math.random() - 0.5) * 1.5 - 0.5, -Math.random() * 4 - 1.5, 20 + Math.random() * 15, 0.85, 'diesel'));
+            }
+
+            // 3. Bouche du bonhomme (propulsée vers l'enfant à droite !)
+            const mouthRate = isInhaling ? 14 : 4;
+            for (let m = 0; m < mouthRate; m++) {
+                particles.push(new SmokeParticle(
+                    mouthX + (Math.random() - 0.5) * 12,
+                    mouthY + (Math.random() - 0.5) * 8,
+                    Math.random() * (isInhaling ? 9 : 3) + 1.5, // Blows right towards the kid!
+                    (Math.random() - 0.5) * (isInhaling ? 3 : 1.5),
+                    (isInhaling ? 26 : 14) + Math.random() * 12,
+                    isInhaling ? 0.9 : 0.6,
+                    isCigarModeActive ? 'cigar' : (isRocketFiring ? 'rocket' : 'diesel')
+                ));
+            }
+
+            // 4. Tabac source (Cigare ou Flûte)
+            if (!isCigarModeActive) {
+                cigs.forEach(c => {
+                    const tip = c.elTip.getBoundingClientRect();
+                    const tipX = (tip.left - stage.left) + tip.width * 0.5;
+                    const tipY = tip.top - stage.top;
+                    if (Math.random() < (isInhaling ? 0.8 : 0.35)) {
+                        particles.push(new SmokeParticle(tipX + (Math.random() - 0.5) * 4, tipY, (Math.random() - 0.5) * 0.6, -Math.random() * 2.5 - 0.8, 12 + Math.random() * 8, 0.6, 'normal'));
+                    }
+                });
+            } else {
+                // Hot cigar smoke & glowing magma sparks
+                const hotTip = document.getElementById('cigarHotTip').getBoundingClientRect();
+                const tipX = (hotTip.left - stage.left) + 10;
+                const tipY = (hotTip.top - stage.top) + 15;
+                if (Math.random() < 0.9) {
+                    particles.push(new SmokeParticle(tipX + (Math.random() - 0.5) * 8, tipY, -Math.random() * 2 - 1, -Math.random() * 3 - 1, 20 + Math.random() * 16, 0.85, 'cigar'));
+                }
+                if (Math.random() < 0.4) {
+                    particles.push(new SmokeParticle(tipX, tipY, (Math.random() - 0.5) * 3, Math.random() * 2 + 1, 2.5 + Math.random() * 2, 0.95, 'ash'));
+                }
+            }
+
+            // RENDU CANVAS FUMÉE
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Ronds
+            for (let r = smokeRings.length - 1; r >= 0; r--) {
+                const ring = smokeRings[r];
+                ring.update();
+                ring.draw(ctx);
+                if (ring.alpha <= 0.01 || ring.x < -100) smokeRings.splice(r, 1);
+            }
+
+            // Particules
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.alpha <= 0.005 || p.y < -120 || p.x < -120 || p.x > canvas.width + 120 || p.y > canvas.height + 120) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // RENDU CANVAS TACHES DE GOUDRON
+            tarCtx.clearRect(0, 0, tarCanvas.width, tarCanvas.height);
+            for (let s = tarSplats.length - 1; s >= 0; s--) {
+                const splat = tarSplats[s];
+                splat.update();
+                splat.draw(tarCtx);
+                if (splat.alpha <= 0) tarSplats.splice(s, 1);
+            }
+
+            requestAnimationFrame(renderLoop);
+        }
+
+        requestAnimationFrame(renderLoop);
+    </script>
+</body>
+</html>

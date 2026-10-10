@@ -18,4 +18,7 @@
 // menu never breaks without it.
 void banner_print(FILE *out);
 
+// Render an ASCII "SUCCESS" banner in bright green.
+void banner_print_success(FILE *out);
+
 #endif // BLEURP_BANNER_H

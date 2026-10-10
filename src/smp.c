@@ -100,17 +100,22 @@ static ssize_t smp_txn(int fd, const uint8_t *req, size_t req_len,
     return read(fd, rsp, rsp_cap);
 }
 
+// Fill the shared weak offer. See smp.h for the contract.
+void smp_weak_offer(struct smp_pairing_params *out) {
+    if (!out) return;
+    out->io_capability = SMP_IO_CAP_NO_INPUT_NO_OUTPUT;
+    out->oob_data_flag = 0;
+    out->auth_req      = SMP_AUTHREQ_BONDING; // bonding only: no MITM, no SC
+    out->max_key_size  = 7;                   // weakest allowed key size
+    out->init_key_dist = 0;
+    out->resp_key_dist = 0;
+}
+
 // Run the downgrade probe. See smp.h for the contract.
 smp_probe_t smp_downgrade_probe(int fd, int timeout_ms,
                                 struct smp_pairing_params *out_response) {
-    const struct smp_pairing_params weak = {
-        .io_capability = SMP_IO_CAP_NO_INPUT_NO_OUTPUT,
-        .oob_data_flag = 0,
-        .auth_req      = SMP_AUTHREQ_BONDING, // bonding only: no MITM, no SC
-        .max_key_size  = 7,                   // weakest allowed key size
-        .init_key_dist = 0,
-        .resp_key_dist = 0,
-    };
+    struct smp_pairing_params weak;
+    smp_weak_offer(&weak);
 
     uint8_t req[7];
     ssize_t rl = smp_build_pairing_request(req, sizeof req, &weak);

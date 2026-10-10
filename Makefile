@@ -8,8 +8,10 @@
 # ========================================
 
 CC      := gcc
-CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -Isrc -Isrc/send_attack -Isrc/smp_native -Itests
-LDLIBS  := -lbluetooth -lm $(shell pkg-config --libs dbus-1)
+# -pthread: the BLERP double-channel MitM (src/smp_native/blerp_attack.c) runs
+# the PI and CI sub-attacks concurrently on two adapters.
+CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -pthread -Isrc -Isrc/send_attack -Isrc/smp_native -Itests
+LDLIBS  := -lbluetooth -lm -lcrypto -pthread $(shell pkg-config --libs dbus-1)
 CFLAGS  += $(shell pkg-config --cflags dbus-1)
 # Absolute path to the bundled FIGlet font used for the menu banner (see
 # src/banner.c), baked in at build time so the binary finds it regardless

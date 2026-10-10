@@ -182,3 +182,18 @@ void banner_print(FILE *out) {
 
     banner_print_gradient(lines, nlines, out);
 }
+
+void banner_print_success(FILE *out) {
+    fprintf(out, "\033[1;32m");
+    fprintf(out, "\n");
+    fprintf(out, "  =================================================================\n");
+    fprintf(out, "   ____  _   _  ____ ____ _____ ____ ____  \n");
+    fprintf(out, "  / ___|| | | |/ ___/ ___| ____/ ___/ ___| \n");
+    fprintf(out, "  \\___ \\| | | | |  | |   |  _| \\___ \\___ \\ \n");
+    fprintf(out, "   ___) | |_| | |__| |___| |___ ___) |__) |\n");
+    fprintf(out, "  |____/ \\___/ \\____\\____|_____|____/____/ \n");
+    fprintf(out, "                                           \n");
+    fprintf(out, "       >>> RE-PAIRING / CONNEXION AUTORISEE AVEC SUCCES <<<        \n");
+    fprintf(out, "  =================================================================\n");
+    fprintf(out, "\033[0m\n");
+}

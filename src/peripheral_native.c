@@ -234,7 +234,7 @@ static int send_l2cap_packet(int fd, uint16_t conn_handle, uint16_t cid, const u
 
     pkt[0] = HCI_ACLDATA_PKT;
     pkt[1] = (uint8_t)(conn_handle & 0xff);
-    pkt[2] = (uint8_t)((conn_handle >> 8) & 0x0f); // PB = 00b, BC = 00b
+    pkt[2] = (uint8_t)(((conn_handle >> 8) & 0x0f) | 0x00); // PB=00b (first non-automatically-flushable, usual on LE)
     pkt[3] = (uint8_t)(acl_len & 0xff);
     pkt[4] = (uint8_t)(acl_len >> 8);
 
@@ -703,6 +703,16 @@ static int hci_read_local_bdaddr(int fd, uint8_t out_bdaddr[6]) {
 }
 
 // Session SMP pour le calcul cryptographique (Legacy Just Works)
+// Per-connection trace for the re-pairing experiment: what the Central did,
+// printed as one [TRACE] line when the link drops.
+struct session_trace {
+    bool enc_req;       // Central asked for encryption (LE LTK Request)
+    bool ltk_rejected;  // we answered with the negative reply
+    bool pairing_req;   // Central sent a Pairing Request
+    bool bonded;        // key distribution completed
+};
+static struct session_trace g_trace;
+
 struct smp_session_state {
     uint8_t preq[7];
     uint8_t pres[7];
@@ -722,6 +732,7 @@ struct smp_session_state {
     uint8_t negotiated_keysize;
     uint8_t resp_key_dist;   // Clés que le Responder s'engage à distribuer
     bool stk_ready;
+    bool ltk_ready;          // LTK a été généré et est prêt pour reconnexion
     bool encrypted;          // Lien chiffré (après HCI_EV_ENCRYPT_CHANGE)
     bool phase3_pending;     // Distribution de clés Phase 3 en attente d'envoi
     bool active;
@@ -927,6 +938,7 @@ int smp_server_handle_packet(uint16_t conn_handle,
         bool c_sc   = (c_auth & 0x08) != 0;
         bool c_bond = (c_auth & 0x01) != 0;
 
+        g_trace.pairing_req = true;
         printf("\n  %s[SMP REQ]%s Reçu Pairing Request du Smartphone :%s\n", UI_YELLOW, UI_BOLD, UI_RESET);
         printf("    IO Capability     : 0x%02x (%s)\n", c_iocap,
                c_iocap == 0x04 ? "KeyboardDisplay" :
@@ -946,8 +958,8 @@ int smp_server_handle_packet(uint16_t conn_handle,
         if (my_keysize == 0) my_keysize = 16;
 
         uint8_t my_iocap = 0x03; // NoInputNoOutput (Just Works) par défaut
-        if (cfg && cfg->io_capability != 0) {
-            my_iocap = cfg->io_capability;
+        if (cfg) {
+            my_iocap = cfg->io_capability; // Honour caller's setting (0x00=DisplayOnly is valid)
         } else if ((my_auth & 0x04) != 0) {
             my_iocap = 0x02; // KeyboardOnly si MITM requis
         }
@@ -982,6 +994,7 @@ int smp_server_handle_packet(uint16_t conn_handle,
             for (int i = 0; i < 8; i++)
                 g_smp_session.rand_val[i] = (uint8_t)(rand() & 0xff);
             g_smp_session.phase3_pending = true;
+            g_smp_session.ltk_ready = true;
         }
 
         memcpy(g_smp_session.pres, rsp, 7);
@@ -1107,6 +1120,7 @@ static void smp_distribute_keys_phase3(int fd, uint16_t conn_handle) {
     printf("  %s[SMP Phase3]%s Envoi Master Identification (EDIV=0x%04x)\n", UI_GREEN, UI_RESET, g_smp_session.ediv);
 
     g_smp_session.phase3_pending = false;
+    g_trace.bonded = true;
     printf("  %s%s[+] Distribution de clés Phase 3 terminée — bonding établi !%s\n> ",
            UI_GREEN, UI_BOLD, UI_RESET);
     fflush(stdout);
@@ -1374,6 +1388,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                             active_conn_handle = (uint16_t)(buf[5] | (buf[6] << 8));
                             is_connected = true;
                             stats.connections_count++;
+                            memset(&g_trace, 0, sizeof g_trace);
 
                             uint8_t role = buf[7]; // 0x01 = Slave/Peripheral
                             uint8_t peer_type = buf[8];
@@ -1414,12 +1429,13 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                         // LE LTK Request contient aussi EDIV (2 octets) et Rand (8 octets)
                         uint16_t req_ediv = 0;
                         uint8_t req_rand[8] = {0};
-                        if (n >= 18) {
+                        if (n >= 16) {
                             // buf[6..13] = Random Number (8 octets), buf[14..15] = EDIV (2 octets)
                             memcpy(req_rand, &buf[6], 8);
                             req_ediv = (uint16_t)(buf[14] | (buf[15] << 8));
                         }
 
+                        g_trace.enc_req = true;
                         printf("  %s[*] Reçu HCI LE LTK Request (Handle=0x%04x, EDIV=0x%04x)...%s\n",
                                UI_PURPLE, req_handle, req_ediv, UI_RESET);
 
@@ -1435,7 +1451,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                         // Cas 2 : Reconnexion — EDIV/Rand correspondent à notre LTK distribué
                         else if (req_ediv == g_smp_session.ediv &&
                                  memcmp(req_rand, g_smp_session.rand_val, 8) == 0 &&
-                                 g_smp_session.ltk[0] != 0) {
+                                 g_smp_session.ltk_ready) {
                             uint8_t ltk_reply[18];
                             ltk_reply[0] = (uint8_t)(req_handle & 0xff);
                             ltk_reply[1] = (uint8_t)(req_handle >> 8);
@@ -1447,13 +1463,14 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                             ltk_neg[0] = (uint8_t)(req_handle & 0xff);
                             ltk_neg[1] = (uint8_t)(req_handle >> 8);
                             hci_send_cmd(fd, 0x201b, ltk_neg, 2);
+                            g_trace.ltk_rejected = true;
                             printf("  %s[-] Aucun LTK correspondant (EDIV mismatch), rejet.%s\n", UI_ORANGE, UI_RESET);
                         }
                     }
-                } else if (evt_code == 0x08 && n >= 6) { // HCI_EV_ENCRYPT_CHANGE
-                    uint8_t enc_status = buf[2];
-                    uint16_t enc_handle = (uint16_t)(buf[3] | (buf[4] << 8));
-                    uint8_t enc_enabled = buf[5];
+                } else if (evt_code == 0x08 && n >= 7) { // HCI_EV_ENCRYPT_CHANGE
+                    uint8_t enc_status = buf[3];
+                    uint16_t enc_handle = (uint16_t)(buf[4] | (buf[5] << 8));
+                    uint8_t enc_enabled = buf[6];
                     if (enc_status == 0x00 && enc_enabled != 0x00) {
                         g_smp_session.encrypted = true;
                         printf("\n  %s============================================================%s\n", UI_GREEN, UI_RESET);
@@ -1467,13 +1484,20 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                         usleep(200000); // 200ms pour laisser le smartphone envoyer ses clés Phase 3
                         smp_distribute_keys_phase3(fd, enc_handle);
                     }
-                } else if (evt_code == HCI_EV_DISCONN_COMPL && n >= 6) {
+                } else if (evt_code == HCI_EV_DISCONN_COMPL && n >= 7) {
                     uint16_t d_handle = (uint16_t)(buf[4] | (buf[5] << 8));
                     if (d_handle == active_conn_handle) {
                         is_connected = false;
                         active_conn_handle = 0;
-                        printf("\n  %s[-] Smartphone déconnecté (Raison: 0x%02x). Ré-armement des annonces...%s\n\n> ",
+                        printf("\n  %s[-] Smartphone déconnecté (Raison: 0x%02x). Ré-armement des annonces...%s\n",
                                UI_ORANGE, buf[6], UI_RESET);
+                        printf("  [TRACE] peer=%s enc_req=%s ltk_rejet=%s pairing_req=%s bonding=%s disc=0x%02x\n\n> ",
+                               stats.peer_addr_str,
+                               g_trace.enc_req ? "oui" : "non",
+                               g_trace.ltk_rejected ? "oui" : "non",
+                               g_trace.pairing_req ? "oui" : "non",
+                               g_trace.bonded ? "oui" : "non",
+                               buf[6]);
                         fflush(stdout);
                         // Réactiver les annonces
                         uint8_t adv_on = 0x01;

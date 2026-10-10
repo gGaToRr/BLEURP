@@ -9,6 +9,7 @@
 #include "test.h"
 #include "ui.h"
 #include "dev_table.h"
+#include "banner.h"
 
 #include <string.h>
 
@@ -59,6 +60,20 @@ static void test_row_unknown(void) {
     CHECK(strstr(buf, "(unknown)") != NULL);
 }
 
+// banner_print_success outputs an ASCII green SUCCESS banner.
+static void test_banner_success(void) {
+    char mem[2048];
+    memset(mem, 0, sizeof mem);
+    FILE *f = fmemopen(mem, sizeof mem, "w");
+    CHECK(f != NULL);
+    if (f) {
+        banner_print_success(f);
+        fclose(f);
+        CHECK(strstr(mem, "\033[1;32m") != NULL);
+        CHECK(strstr(mem, "SUCCES") != NULL);
+    }
+}
+
 // Entry point: run every test case and report the aggregate result.
 int main(void) {
     printf("test_ui\n");
@@ -66,5 +81,7 @@ int main(void) {
     test_color();
     test_row_named();
     test_row_unknown();
+    test_banner_success();
     return TEST_REPORT();
 }
+

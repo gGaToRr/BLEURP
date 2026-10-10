@@ -88,4 +88,9 @@ typedef enum {
 smp_probe_t smp_downgrade_probe(int fd, int timeout_ms,
                                 struct smp_pairing_params *out_response);
 
+// Fill `out` with the weakest offer the probes send: IO capability NoInput
+// NoOutput, bonding only (no MITM, no SC), 7-byte maximum key size, no key
+// distribution. Shared by the first-pairing probe and the re-pairing check.
+void smp_weak_offer(struct smp_pairing_params *out);
+
 #endif // BLEURP_SMP_H
