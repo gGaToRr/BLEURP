@@ -30,6 +30,7 @@
 #ifndef BLEURP_SMP_SC_H
 #define BLEURP_SMP_SC_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 // Opaque local ECDH P-256 key pair.
@@ -55,6 +56,15 @@ int smp_sc_public_key(const struct smp_sc_keypair *kp, uint8_t out[64]);
 // invalid-curve point) or on any other failure.
 int smp_sc_dhkey(const struct smp_sc_keypair *kp, const uint8_t peer_pubkey[64],
                  uint8_t out[32]);
+
+// AES-128 CMAC (RFC 4493), generic byte-string-in/16-byte-tag-out. No
+// SMP/Core-Spec byte-order opinion -- f4/f5/f6/g2 below are thin
+// compositions of this over Core-Spec-ordered buffers, but it is exposed
+// directly for other crypto that wants plain AES-CMAC (e.g.
+// src/blerp/authenticated_repair.c's own, unrelated CMAC-based KDF).
+// Returns 0 on success, -1 on an OpenSSL failure.
+int smp_sc_cmac(const uint8_t key[16], const uint8_t *msg, size_t msg_len,
+                uint8_t out[16]);
 
 // f4(U, V, X, Z) = AES-CMAC_X(U || V || Z). U, V are 32-byte public key
 // X-coordinates; X is the 16-byte CMAC key; Z is one byte (0x00 for the

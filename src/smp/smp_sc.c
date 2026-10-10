@@ -27,12 +27,13 @@ static void reverse_bytes(const uint8_t *in, size_t len, uint8_t *out) {
     for (size_t i = 0; i < len; i++) out[i] = in[len - 1 - i];
 }
 
-// AES-128 CMAC (RFC 4493) over an already-big-endian key/message, producing
-// a big-endian 16-byte tag. No byte-order conversion here -- callers built
-// `key`/`msg` in the Core Spec's math order already (see reverse_bytes()
-// call sites below). Returns 0 on success, -1 on an OpenSSL failure.
-static int aes_cmac_be(const uint8_t key[16], const uint8_t *msg, size_t msg_len,
-                       uint8_t out[16]) {
+// AES-128 CMAC (RFC 4493). See smp_sc.h for the contract. No byte-order
+// opinion here: f4/f5/f6/g2 below call it with their Core Spec big-endian
+// buffers already built (see reverse_bytes() call sites), but the
+// primitive itself is generic and exposed for other SMP-adjacent crypto to
+// reuse (see src/blerp/authenticated_repair.c).
+int smp_sc_cmac(const uint8_t key[16], const uint8_t *msg, size_t msg_len,
+               uint8_t out[16]) {
     int rc = -1;
     EVP_MAC *mac = EVP_MAC_fetch(NULL, "CMAC", NULL);
     if (!mac) return -1;
@@ -155,7 +156,7 @@ int smp_sc_f4(const uint8_t u[32], const uint8_t v[32], const uint8_t x[16],
     msg_be[64] = z; // single byte, no order to reverse
 
     uint8_t out_be[16];
-    if (aes_cmac_be(key_be, msg_be, sizeof msg_be, out_be) < 0) return -1;
+    if (smp_sc_cmac(key_be, msg_be, sizeof msg_be, out_be) < 0) return -1;
     reverse_bytes(out_be, 16, out);
     return 0;
 }
@@ -180,7 +181,7 @@ int smp_sc_f5(const uint8_t w[32], const uint8_t n1[16], const uint8_t n2[16],
     reverse_bytes(w, 32, w_be);
 
     uint8_t t_be[16];
-    if (aes_cmac_be(salt_be, w_be, sizeof w_be, t_be) < 0) return -1;
+    if (smp_sc_cmac(salt_be, w_be, sizeof w_be, t_be) < 0) return -1;
 
     // M0 = Counter(1) || keyID(4) || N1(16) || N2(16) || A1(7) || A2(7) || Length(2)
     // Length = 256 (bits), little-endian in the Core Spec's own field
@@ -200,7 +201,7 @@ int smp_sc_f5(const uint8_t w[32], const uint8_t n1[16], const uint8_t n2[16],
         msg_be[off++] = 0x01; msg_be[off++] = 0x00; // Length = 256
 
         uint8_t out_be[16];
-        if (aes_cmac_be(t_be, msg_be, sizeof msg_be, out_be) < 0) return -1;
+        if (smp_sc_cmac(t_be, msg_be, sizeof msg_be, out_be) < 0) return -1;
         reverse_bytes(out_be, 16, counter == 0 ? out_mackey : out_ltk);
     }
     return 0;
@@ -225,7 +226,7 @@ int smp_sc_f6(const uint8_t w[16], const uint8_t n1[16], const uint8_t n2[16],
     reverse_bytes(a2, 7, &msg_be[off]); off += 7;
 
     uint8_t out_be[16];
-    if (aes_cmac_be(key_be, msg_be, sizeof msg_be, out_be) < 0) return -1;
+    if (smp_sc_cmac(key_be, msg_be, sizeof msg_be, out_be) < 0) return -1;
     reverse_bytes(out_be, 16, out);
     return 0;
 }
@@ -244,7 +245,7 @@ int smp_sc_g2(const uint8_t u[32], const uint8_t v[32], const uint8_t x[16],
     reverse_bytes(y, 16, &msg_be[64]);
 
     uint8_t tag_be[16];
-    if (aes_cmac_be(key_be, msg_be, sizeof msg_be, tag_be) < 0) return -1;
+    if (smp_sc_cmac(key_be, msg_be, sizeof msg_be, tag_be) < 0) return -1;
 
     // The display value is the 32 LEAST significant bits of the CMAC
     // output, taken from its big-endian (spec) representation, mod 10^6.
