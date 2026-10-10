@@ -13,6 +13,9 @@
 #include "hci_dev.h"
 #include "ui.h"
 #include "mgmt.h"
+#include "smp.h" // SMP_CODE_* opcodes
+#include "wire/hci_wire.h"
+#include "wire/hci_user_channel.h"
 #include "send_attack/keymap.h"
 #include "send_attack/ducky.h"
 
@@ -24,24 +27,13 @@
 #include <poll.h>
 #include <signal.h>
 #include <termios.h>
-#include <sys/socket.h>
 #include <sys/time.h>
 
-#define AF_BLUETOOTH_VAL     31
-#define BTPROTO_HCI_VAL      1
-#define HCI_CHANNEL_USER_VAL 1
-
-#define HCI_COMMAND_PKT      0x01
-#define HCI_ACLDATA_PKT      0x02
-#define HCI_EVENT_PKT        0x04
-
-#define HCI_EV_CMD_COMPLETE    0x0e
-#define HCI_EV_CMD_STATUS      0x0f
-#define HCI_EV_DISCONN_COMPL   0x05
-#define HCI_EV_LE_META         0x3e
-
-#define HCI_LE_EV_CONN_COMPL   0x01
-#define HCI_LE_EV_ENHANCED_CONN 0x0a
+// Aliases kept local to this file: the connection-complete / LTK-request
+// sub-event names this file has always used, mapped onto the consolidated
+// src/wire/hci_wire.h constants.
+#define HCI_LE_EV_CONN_COMPL    HCI_SUBEVT_LE_CONN_COMPLETE
+#define HCI_LE_EV_ENHANCED_CONN HCI_SUBEVT_LE_CONN_COMPLETE_ENH
 
 #define ATT_CID_VAL            0x0004
 #define SMP_CID_VAL            0x0006
@@ -77,13 +69,13 @@
 #define ATT_ERR_INVALID_OFFSET       0x07
 #define ATT_ERR_ATTR_NOT_FOUND       0x0a
 
-// SMP Opcodes
-#define SMP_OP_PAIRING_REQ           0x01
-#define SMP_OP_PAIRING_RSP           0x02
+// SMP Opcodes (the ones also defined in smp.h are aliased, not repeated).
+#define SMP_OP_PAIRING_REQ           SMP_CODE_PAIRING_REQUEST
+#define SMP_OP_PAIRING_RSP           SMP_CODE_PAIRING_RESPONSE
 #define SMP_OP_PAIRING_CONFIRM       0x03
 #define SMP_OP_PAIRING_RANDOM        0x04
-#define SMP_OP_PAIRING_FAILED        0x05
-#define SMP_OP_SECURITY_REQ          0x0b
+#define SMP_OP_PAIRING_FAILED        SMP_CODE_PAIRING_FAILED
+#define SMP_OP_SECURITY_REQ          SMP_CODE_SECURITY_REQUEST
 #define SMP_OP_PUBLIC_KEY            0x0c
 #define SMP_OP_DHKEY_CHECK           0x0d
 
@@ -160,94 +152,6 @@ static const uint8_t hid_keyboard_report_map[] = {
     0xC0              // End Collection
 };
 
-struct sockaddr_hci_raw {
-    uint16_t hci_family;
-    uint16_t hci_dev;
-    uint16_t hci_channel;
-};
-
-// Arrêt/Démarrage de l'adaptateur via BlueZ mgmt pour acquérir HCI_CHANNEL_USER
-static void set_adapter_power_mgmt(int dev_id, uint8_t powered) {
-    int mfd = mgmt_open();
-    if (mfd < 0) return;
-    uint8_t cmd[16];
-    ssize_t n = mgmt_build_command(cmd, sizeof(cmd), MGMT_OP_SET_POWERED, (uint16_t)dev_id, &powered, 1);
-    if (n > 0) {
-        if (write(mfd, cmd, (size_t)n) > 0) {
-            uint8_t rsp[64];
-            (void)read(mfd, rsp, sizeof(rsp));
-        }
-    }
-    mgmt_close(mfd);
-}
-
-// Envoi d'une commande HCI synchrone et vérification du statut contrôleur
-static int hci_send_cmd_sync(int fd, uint16_t opcode, const uint8_t *param, uint8_t plen, uint8_t *out_status) {
-    uint8_t buf[256];
-    buf[0] = HCI_COMMAND_PKT;
-    buf[1] = (uint8_t)(opcode & 0xff);
-    buf[2] = (uint8_t)(opcode >> 8);
-    buf[3] = plen;
-    if (plen && param) {
-        memcpy(&buf[4], param, plen);
-    }
-    ssize_t total = 4 + plen;
-    if (write(fd, buf, (size_t)total) != total) {
-        return -1;
-    }
-
-    struct pollfd pfd = { .fd = fd, .events = POLLIN, .revents = 0 };
-    for (int i = 0; i < 20; i++) {
-        if (poll(&pfd, 1, 100) <= 0) break;
-        uint8_t rsp[256];
-        ssize_t n = read(fd, rsp, sizeof(rsp));
-        if (n < 3) continue;
-        if (rsp[0] == HCI_EVENT_PKT) {
-            if (rsp[1] == HCI_EV_CMD_COMPLETE && n >= 6) {
-                uint16_t op = (uint16_t)(rsp[4] | (rsp[5] << 8));
-                if (op == opcode) {
-                    if (out_status && n >= 7) *out_status = rsp[6];
-                    return (n >= 7 && rsp[6] == 0x00) ? 0 : -1;
-                }
-            } else if (rsp[1] == HCI_EV_CMD_STATUS && n >= 7) {
-                uint16_t op = (uint16_t)(rsp[5] | (rsp[6] << 8));
-                if (op == opcode) {
-                    if (out_status) *out_status = rsp[3];
-                    return (rsp[3] == 0x00) ? 0 : -1;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
-// Envoi d'une commande HCI brute
-static int hci_send_cmd(int fd, uint16_t opcode, const uint8_t *param, uint8_t plen) {
-    return hci_send_cmd_sync(fd, opcode, param, plen, NULL);
-}
-
-// Envoi d'un paquet ACL contenant un payload L2CAP sur le CID spécifié
-static int send_l2cap_packet(int fd, uint16_t conn_handle, uint16_t cid, const uint8_t *payload, uint16_t len) {
-    uint8_t pkt[512];
-    uint16_t l2cap_len = len;
-    uint16_t acl_len = (uint16_t)(4 + l2cap_len);
-
-    pkt[0] = HCI_ACLDATA_PKT;
-    pkt[1] = (uint8_t)(conn_handle & 0xff);
-    pkt[2] = (uint8_t)(((conn_handle >> 8) & 0x0f) | 0x00); // PB=00b (first non-automatically-flushable, usual on LE)
-    pkt[3] = (uint8_t)(acl_len & 0xff);
-    pkt[4] = (uint8_t)(acl_len >> 8);
-
-    pkt[5] = (uint8_t)(l2cap_len & 0xff);
-    pkt[6] = (uint8_t)(l2cap_len >> 8);
-    pkt[7] = (uint8_t)(cid & 0xff);
-    pkt[8] = (uint8_t)(cid >> 8);
-
-    memcpy(&pkt[9], payload, len);
-    ssize_t total = 9 + len;
-    return (write(fd, pkt, (size_t)total) == total) ? 0 : -1;
-}
-
 // Construction du paquet d'annonces BLE (ADV_IND)
 int peripheral_build_adv_data(const char *name, uint8_t *out_buf, size_t max_len) {
     if (!out_buf || max_len < 31) return -1;
@@ -286,7 +190,6 @@ int peripheral_build_adv_data(const char *name, uint8_t *out_buf, size_t max_len
     return (int)off;
 }
 
-// Construction de la réponse au scan (Scan Response Data)
 // Construction de la réponse au scan (Scan Response Data)
 int peripheral_build_scan_rsp(const char *name, uint8_t *out_buf, size_t max_len) {
     if (!out_buf || max_len < 31) return -1;
@@ -672,34 +575,6 @@ int gatt_server_handle_att_packet(uint16_t conn_handle,
     }
 
     return build_att_error(op, 0x0001, ATT_ERR_REQ_NOT_SUPPORTED, rsp, rsp_max);
-}
-
-// Lecture de l'adresse MAC réelle (BD_ADDR) du contrôleur local
-static int hci_read_local_bdaddr(int fd, uint8_t out_bdaddr[6]) {
-    uint8_t cmd[4];
-    cmd[0] = HCI_COMMAND_PKT;
-    cmd[1] = 0x09; // HCI_Read_BD_ADDR opcode 0x1009
-    cmd[2] = 0x10;
-    cmd[3] = 0x00; // param len 0
-    if (write(fd, cmd, 4) != 4) return -1;
-
-    struct pollfd pfd = { .fd = fd, .events = POLLIN, .revents = 0 };
-    for (int i = 0; i < 20; i++) {
-        if (poll(&pfd, 1, 100) <= 0) break;
-        uint8_t rsp[256];
-        ssize_t n = read(fd, rsp, sizeof(rsp));
-        if (n < 7) continue;
-        if (rsp[0] == HCI_EVENT_PKT && rsp[1] == HCI_EV_CMD_COMPLETE) {
-            uint16_t op = (uint16_t)(rsp[4] | (rsp[5] << 8));
-            if (op == 0x1009 && rsp[6] == 0x00 && n >= 13) {
-                if (out_bdaddr) {
-                    memcpy(out_bdaddr, &rsp[7], 6);
-                }
-                return 0;
-            }
-        }
-    }
-    return -1;
 }
 
 // Session SMP pour le calcul cryptographique (Legacy Just Works)
@@ -1106,7 +981,7 @@ static void smp_distribute_keys_phase3(int fd, uint16_t conn_handle) {
     uint8_t enc_info[17];
     enc_info[0] = 0x06; // SMP_OP_ENCRYPTION_INFO
     memcpy(&enc_info[1], g_smp_session.ltk, 16);
-    send_l2cap_packet(fd, conn_handle, SMP_CID_VAL, enc_info, 17);
+    hci_user_channel_send_acl(fd, conn_handle, SMP_CID_VAL, enc_info, 17);
     printf("  %s[SMP Phase3]%s Envoi Encryption Info (LTK du périphérique, 16 octets)\n", UI_GREEN, UI_RESET);
     usleep(10000); // Petit délai entre les deux PDUs
 
@@ -1116,7 +991,7 @@ static void smp_distribute_keys_phase3(int fd, uint16_t conn_handle) {
     master_id[1] = (uint8_t)(g_smp_session.ediv & 0xff);
     master_id[2] = (uint8_t)(g_smp_session.ediv >> 8);
     memcpy(&master_id[3], g_smp_session.rand_val, 8);
-    send_l2cap_packet(fd, conn_handle, SMP_CID_VAL, master_id, 11);
+    hci_user_channel_send_acl(fd, conn_handle, SMP_CID_VAL, master_id, 11);
     printf("  %s[SMP Phase3]%s Envoi Master Identification (EDIV=0x%04x)\n", UI_GREEN, UI_RESET, g_smp_session.ediv);
 
     g_smp_session.phase3_pending = false;
@@ -1141,7 +1016,7 @@ int peripheral_send_hid_report(int fd, uint16_t conn_handle, uint8_t modifiers, 
         memset(&ntf[5], 0, 6);
     }
 
-    return send_l2cap_packet(fd, conn_handle, ATT_CID_VAL, ntf, sizeof(ntf));
+    return hci_user_channel_send_acl(fd, conn_handle, ATT_CID_VAL, ntf, sizeof(ntf));
 }
 
 // Envoi d'une frappe de touche (appui + relâchement)
@@ -1204,39 +1079,23 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
 
     printf("\n  %s[*] Initialisation du mode Périphérique Clavier BLE sur hci%d...%s\n", UI_PINK, dev_id, UI_RESET);
 
-    // 1. Mise en sommeil de l'adaptateur via BlueZ mgmt pour ouvrir HCI_CHANNEL_USER
-    set_adapter_power_mgmt(dev_id, 0);
-    usleep(50000);
-
-    int fd = socket(AF_BLUETOOTH_VAL, SOCK_RAW, BTPROTO_HCI_VAL);
+    // 1. Ouverture du canal HCI_CHANNEL_USER (met l'adaptateur en sommeil via
+    //    BlueZ mgmt le temps de la session, requis pour bind() ci-dessous).
+    int fd = hci_user_channel_open(dev_id);
     if (fd < 0) {
-        set_adapter_power_mgmt(dev_id, 1);
-        perror("  [!] socket(BTPROTO_HCI)");
-        return -1;
-    }
-
-    struct sockaddr_hci_raw sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.hci_family = AF_BLUETOOTH_VAL;
-    sa.hci_dev = (uint16_t)dev_id;
-    sa.hci_channel = HCI_CHANNEL_USER_VAL;
-
-    if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
         int err = errno;
-        close(fd);
-        set_adapter_power_mgmt(dev_id, 1);
-        fprintf(stderr, "  [!] Échec bind(HCI_CHANNEL_USER) sur hci%d: %s (code %d)\n", dev_id, strerror(err), err);
+        fprintf(stderr, "  [!] hci%d : %s\n", dev_id, hci_user_channel_strerror(err));
         return -1;
     }
 
     // 2. Initialisation contrôleur (HCI Reset)
     uint8_t st = 0;
-    hci_send_cmd_sync(fd, 0x0c03, NULL, 0, &st);
+    hci_user_channel_send_cmd_sync(fd, HCI_OP_RESET, NULL, 0, &st);
     usleep(50000);
 
     // Lecture de l'adresse MAC réelle de notre contrôleur local (HCI_Read_BD_ADDR)
     memset(g_local_bdaddr, 0, sizeof(g_local_bdaddr));
-    if (hci_read_local_bdaddr(fd, g_local_bdaddr) == 0) {
+    if (hci_user_channel_read_bdaddr(fd, g_local_bdaddr) == 0) {
         printf("  [+] Contrôleur local BD_ADDR : %02X:%02X:%02X:%02X:%02X:%02X\n",
                g_local_bdaddr[5], g_local_bdaddr[4], g_local_bdaddr[3],
                g_local_bdaddr[2], g_local_bdaddr[1], g_local_bdaddr[0]);
@@ -1246,14 +1105,14 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
 
     // 3. Masques d'événements
     uint8_t evt_mask[8] = {0xff, 0xff, 0xfb, 0xff, 0x07, 0xf8, 0xbf, 0x3d};
-    hci_send_cmd_sync(fd, 0x0c01, evt_mask, 8, &st); // Set Event Mask
+    hci_user_channel_send_cmd_sync(fd, HCI_OP_SET_EVENT_MASK, evt_mask, 8, &st); // Set Event Mask
 
     uint8_t le_mask[8] = {0xff, 0x1f, 0x0a, 0x03, 0, 0, 0, 0};
-    hci_send_cmd_sync(fd, 0x2001, le_mask, 8, &st); // LE Set Event Mask
+    hci_user_channel_send_cmd_sync(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8, &st); // LE Set Event Mask
 
     // 4. Désactiver les annonces avant de configurer les paramètres
     uint8_t adv_off = 0x00;
-    hci_send_cmd_sync(fd, 0x200a, &adv_off, 1, &st);
+    hci_user_channel_send_cmd_sync(fd, HCI_OP_LE_SET_ADV_ENABLE, &adv_off, 1, &st);
 
     // 5. Configuration des paramètres d'annonces (ADV_IND, Connectable, intervalle 20-30ms recommandé par Apple)
     uint8_t adv_param[15];
@@ -1266,7 +1125,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
     // adv_param[7..12] = 0 (Peer addr)
     adv_param[13] = 0x07;                     // Channels 37, 38, 39
     adv_param[14] = 0x00;                     // Filter Policy: Process all
-    if (hci_send_cmd_sync(fd, 0x2006, adv_param, 15, &st) < 0) {
+    if (hci_user_channel_send_cmd_sync(fd, HCI_OP_LE_SET_ADV_PARAMS, adv_param, 15, &st) < 0) {
         fprintf(stderr, "  [!] Avertissement : HCI_LE_Set_Advertising_Parameters retour 0x%02x\n", st);
     }
 
@@ -1276,7 +1135,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
     int adv_len = peripheral_build_adv_data(dev_name, &adv_raw[1], 31);
     if (adv_len > 0) {
         adv_raw[0] = (uint8_t)adv_len;
-        if (hci_send_cmd_sync(fd, 0x2008, adv_raw, 32, &st) < 0) {
+        if (hci_user_channel_send_cmd_sync(fd, HCI_OP_LE_SET_ADV_DATA, adv_raw, 32, &st) < 0) {
             fprintf(stderr, "  [!] Avertissement : HCI_LE_Set_Advertising_Data retour 0x%02x\n", st);
         }
     }
@@ -1287,14 +1146,14 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
     int scan_len = peripheral_build_scan_rsp(dev_name, &scan_raw[1], 31);
     if (scan_len > 0) {
         scan_raw[0] = (uint8_t)scan_len;
-        if (hci_send_cmd_sync(fd, 0x2009, scan_raw, 32, &st) < 0) {
+        if (hci_user_channel_send_cmd_sync(fd, HCI_OP_LE_SET_SCAN_RSP_DATA, scan_raw, 32, &st) < 0) {
             fprintf(stderr, "  [!] Avertissement : HCI_LE_Set_Scan_Response_Data retour 0x%02x\n", st);
         }
     }
 
     // 8. Démarrage effectif de l'émission d'annonces
     uint8_t adv_enable = 0x01;
-    if (hci_send_cmd_sync(fd, 0x200a, &adv_enable, 1, &st) < 0) {
+    if (hci_user_channel_send_cmd_sync(fd, HCI_OP_LE_SET_ADV_ENABLE, &adv_enable, 1, &st) < 0) {
         fprintf(stderr, "  [!] Avertissement : HCI_LE_Set_Advertise_Enable retour 0x%02x\n", st);
     }
 
@@ -1416,7 +1275,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                             // Envoi optionnel du Security Request (0x0B) pour solliciter l'appairage
                             if (cfg && cfg->trigger_sec_req) {
                                 uint8_t sec_req[2] = { SMP_OP_SECURITY_REQ, cfg->auth_req };
-                                send_l2cap_packet(fd, active_conn_handle, SMP_CID_VAL, sec_req, 2);
+                                hci_user_channel_send_acl(fd, active_conn_handle, SMP_CID_VAL, sec_req, 2);
                                 printf("  [*] Envoi SMP Security Request (AuthReq=0x%02x) au smartphone...\n", cfg->auth_req);
                             }
 
@@ -1445,7 +1304,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                             ltk_reply[0] = (uint8_t)(req_handle & 0xff);
                             ltk_reply[1] = (uint8_t)(req_handle >> 8);
                             memcpy(&ltk_reply[2], g_smp_session.stk, 16);
-                            hci_send_cmd(fd, 0x201a, ltk_reply, 18);
+                            hci_user_channel_send_cmd(fd, HCI_OP_LE_LTK_REPLY, ltk_reply, 18);
                             printf("  %s[+] STK fourni au contrôleur -> Activation du chiffrement matériel Link Layer !%s\n", UI_GREEN, UI_RESET);
                         }
                         // Cas 2 : Reconnexion — EDIV/Rand correspondent à notre LTK distribué
@@ -1456,13 +1315,13 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                             ltk_reply[0] = (uint8_t)(req_handle & 0xff);
                             ltk_reply[1] = (uint8_t)(req_handle >> 8);
                             memcpy(&ltk_reply[2], g_smp_session.ltk, 16);
-                            hci_send_cmd(fd, 0x201a, ltk_reply, 18);
+                            hci_user_channel_send_cmd(fd, HCI_OP_LE_LTK_REPLY, ltk_reply, 18);
                             printf("  %s[+] LTK (bonding) fourni au contrôleur -> Reconnexion chiffrée !%s\n", UI_GREEN, UI_RESET);
                         } else {
                             uint8_t ltk_neg[2];
                             ltk_neg[0] = (uint8_t)(req_handle & 0xff);
                             ltk_neg[1] = (uint8_t)(req_handle >> 8);
-                            hci_send_cmd(fd, 0x201b, ltk_neg, 2);
+                            hci_user_channel_send_cmd(fd, HCI_OP_LE_LTK_NEG_REPLY, ltk_neg, 2);
                             g_trace.ltk_rejected = true;
                             printf("  %s[-] Aucun LTK correspondant (EDIV mismatch), rejet.%s\n", UI_ORANGE, UI_RESET);
                         }
@@ -1501,7 +1360,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                         fflush(stdout);
                         // Réactiver les annonces
                         uint8_t adv_on = 0x01;
-                        hci_send_cmd(fd, 0x200a, &adv_on, 1);
+                        hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &adv_on, 1);
                     }
                 }
             }
@@ -1520,7 +1379,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                     int rlen = smp_server_handle_packet(active_conn_handle, l2payload, payload_len,
                                                         smp_rsp, sizeof(smp_rsp), cfg, &stats);
                     if (rlen > 0) {
-                        send_l2cap_packet(fd, active_conn_handle, SMP_CID_VAL, smp_rsp, (uint16_t)rlen);
+                        hci_user_channel_send_acl(fd, active_conn_handle, SMP_CID_VAL, smp_rsp, (uint16_t)rlen);
                     }
                 }
 
@@ -1555,7 +1414,7 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
                     }
 
                     if (rlen > 0) {
-                        send_l2cap_packet(fd, active_conn_handle, ATT_CID_VAL, att_rsp, (uint16_t)rlen);
+                        hci_user_channel_send_acl(fd, active_conn_handle, ATT_CID_VAL, att_rsp, (uint16_t)rlen);
                     }
                 }
             }
@@ -1565,11 +1424,10 @@ int peripheral_keyboard_run(const struct peripheral_config *cfg) {
     // Arrêt propre
     printf("\n  [*] Arrêt du périphérique Clavier BLE...\n");
     adv_off = 0x00;
-    hci_send_cmd(fd, 0x200a, &adv_off, 1);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &adv_off, 1);
     usleep(20000);
 
-    close(fd);
-    set_adapter_power_mgmt(dev_id, 1);
+    hci_user_channel_close(fd, dev_id);
     printf("  %s[+] Adaptateur hci%d réinitialisé et libéré.%s\n", UI_GREEN, dev_id, UI_RESET);
     return 0;
 }

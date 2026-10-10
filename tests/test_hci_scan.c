@@ -9,7 +9,7 @@
 
 #include "test.h"
 #include "hci_scan.h"
-#include "hci.h"
+#include "hci_wire.h"
 
 #include <errno.h>
 #include <string.h>
@@ -194,7 +194,7 @@ static size_t make_legacy_adv(uint8_t *b, uint8_t addr_type,
                               const uint8_t addr[6], const uint8_t *data,
                               uint8_t dlen, int8_t rssi) {
     size_t o = 0;
-    b[o++] = HCI_EVT_LE_META;
+    b[o++] = HCI_EV_LE_META;
     size_t plen = o++;                       // filled at the end
     b[o++] = HCI_SUBEVT_LE_ADV_REPORT;
     b[o++] = 0x01;                           // num reports
@@ -213,7 +213,7 @@ static size_t make_ext_adv(uint8_t *b, uint8_t addr_type,
                            const uint8_t addr[6], const uint8_t *data,
                            uint8_t dlen, int8_t rssi) {
     size_t o = 0;
-    b[o++] = HCI_EVT_LE_META;
+    b[o++] = HCI_EV_LE_META;
     size_t plen = o++;
     b[o++] = HCI_SUBEVT_LE_EXT_ADV_REPORT;
     b[o++] = 0x01;                           // num reports
@@ -276,7 +276,7 @@ static void test_dispatch_legacy_multi(void) {
     const uint8_t a2[6] = {7, 8, 9, 10, 11, 12};
     uint8_t buf[64];
     size_t o = 0;
-    buf[o++] = HCI_EVT_LE_META;
+    buf[o++] = HCI_EV_LE_META;
     size_t plen = o++;
     buf[o++] = HCI_SUBEVT_LE_ADV_REPORT;
     buf[o++] = 0x02;                         // two reports
@@ -313,17 +313,17 @@ static void test_dispatch_truncated(void) {
 // Non-advertising events are ignored (return 0, nothing dispatched).
 static void test_dispatch_ignores_other(void) {
     g_cap_n = 0;
-    uint8_t buf[8] = {HCI_EVT_CMD_COMPLETE, 0x04, 0x01, 0x01, 0x10, 0x00, 0x00};
+    uint8_t buf[8] = {HCI_EV_CMD_COMPLETE, 0x04, 0x01, 0x01, 0x10, 0x00, 0x00};
     CHECK(hci_dispatch_event(buf, sizeof buf, cap_cb, NULL) == 0);
     // An LE meta event with an unrelated sub-event is also ignored.
-    uint8_t le[4] = {HCI_EVT_LE_META, 0x02, 0x01, 0x00};
+    uint8_t le[4] = {HCI_EV_LE_META, 0x02, 0x01, 0x00};
     CHECK(hci_dispatch_event(le, sizeof le, cap_cb, NULL) == 0);
     CHECK(g_cap_n == 0);
 }
 
 // NULL arguments and too-short buffers are rejected.
 static void test_dispatch_bad_args(void) {
-    uint8_t buf[8] = {HCI_EVT_LE_META, 0x02, HCI_SUBEVT_LE_ADV_REPORT, 0x00};
+    uint8_t buf[8] = {HCI_EV_LE_META, 0x02, HCI_SUBEVT_LE_ADV_REPORT, 0x00};
     errno = 0;
     CHECK(hci_dispatch_event(NULL, 4, cap_cb, NULL) == -1);
     CHECK(errno == EINVAL);

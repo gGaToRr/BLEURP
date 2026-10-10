@@ -27,6 +27,7 @@ static const struct option long_opts[] = {
     {"json",    no_argument,       NULL, OPT_JSON},
     {"passive", no_argument,       NULL, OPT_PASSIVE},
     {"active",  no_argument,       NULL, OPT_ACTIVE},
+    {"verbose", no_argument,       NULL, 'v'},
     {"help",    no_argument,       NULL, 'h'},
     {NULL, 0, NULL, 0},
 };
@@ -38,6 +39,7 @@ void cli_set_defaults(struct cli_opts *out) {
     out->output[0] = '\0';
     out->json = false;
     out->passive = false;
+    out->verbose = false;
     out->help = false;
 }
 
@@ -51,6 +53,7 @@ void cli_print_usage(const char *prog, FILE *stream) {
             "      --json                emit machine-readable JSON\n"
             "      --passive             passive scan (listen only)\n"
             "      --active              active scan (default)\n"
+            "  -v, --verbose             show a per-device details line\n"
             "  -h, --help                show this help and exit\n",
             prog);
 }
@@ -100,7 +103,7 @@ cli_status_t cli_parse(int argc, char **argv, struct cli_opts *out,
     optind = 1; // rescan argv from the start (argv may be reused by tests)
 
     int c;
-    while ((c = getopt_long(argc, argv, "i:t:o:h", long_opts, NULL)) != -1) {
+    while ((c = getopt_long(argc, argv, "i:t:o:vh", long_opts, NULL)) != -1) {
         switch (c) {
         case 'i':
             if (parse_iface(optarg, &out->iface) < 0) {
@@ -136,6 +139,9 @@ cli_status_t cli_parse(int argc, char **argv, struct cli_opts *out,
             break;
         case OPT_ACTIVE:
             out->passive = false;
+            break;
+        case 'v':
+            out->verbose = true;
             break;
         case 'h':
             out->help = true;

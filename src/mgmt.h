@@ -151,6 +151,19 @@ int mgmt_dispatch_event(const uint8_t *evt, size_t len,
 // Test whether a settings bitmask has a given MGMT_SETTING_* flag.
 bool mgmt_has_setting(uint32_t settings, uint32_t flag);
 
+// Parse a Command Complete event's header fields -- the opcode it completes
+// and its status byte -- without interpreting any command-specific return
+// parameters. Use this for commands whose result is just success/failure
+// (e.g. MGMT_OP_SET_POWERED); mgmt_parse_controller_info() covers the one
+// reply that carries a return-parameter payload BLEURP needs to decode.
+// `evt` points at the start of the mgmt event (header included). Returns 0
+// on success, or -1 with errno set:
+//   EINVAL  - evt, out_opcode or out_status is NULL
+//   EBADMSG - not a Command Complete event, or truncated before the status
+//             byte
+int mgmt_parse_cmd_complete(const uint8_t *evt, size_t len,
+                            uint16_t *out_opcode, uint8_t *out_status);
+
 // Parse a Read Controller Information reply (a Command Complete event for
 // opcode 0x0004) into `out`. `evt` points at the start of the mgmt event
 // (header included). Returns 0 on success, or -1 with errno set:

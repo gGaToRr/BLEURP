@@ -9,7 +9,7 @@
 
 #include "test.h"
 #include "hci_cmd.h"
-#include "hci.h"
+#include "hci_wire.h"
 
 #include <errno.h>
 

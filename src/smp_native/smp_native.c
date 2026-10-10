@@ -13,6 +13,9 @@
 #include "secreq.h"
 #include "../ui.h"
 #include "../mgmt.h"
+#include "../smp.h" // SMP_CODE_* opcodes
+#include "../wire/hci_wire.h"
+#include "../wire/hci_user_channel.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,139 +23,21 @@
 #include <unistd.h>
 #include <errno.h>
 #include <poll.h>
-#include <sys/socket.h>
 #include <sys/time.h>
-
-#define AF_BLUETOOTH_VAL   31
-#define BTPROTO_HCI_VAL    1
-#define HCI_CHANNEL_USER_VAL 1
 
 // Adresses BLEURP (voir l2cap.h) : 1 = LE Public, 2 = LE Random
 #define SMP_NATIVE_ATYPE_PUBLIC 1
 #define SMP_NATIVE_ATYPE_RANDOM 2
 
-#define HCI_COMMAND_PKT    0x01
-#define HCI_ACLDATA_PKT    0x02
-#define HCI_EVENT_PKT      0x04
-
-#define HCI_EV_CMD_COMPLETE  0x0e
-#define HCI_EV_CMD_STATUS    0x0f
-#define HCI_EV_DISCONN_COMPL 0x05
-#define HCI_EV_LE_META       0x3e
-
-#define HCI_LE_EV_CONN_COMPL 0x01
-#define HCI_LE_EV_CONN_COMPL_ENH 0x0a
-
-#define HCI_OP_RESET                 0x0c03
-#define HCI_OP_LE_SET_EVENT_MASK     0x2001
-#define HCI_OP_LE_CREATE_CONN        0x200d
-#define HCI_OP_LE_CREATE_CONN_CANCEL 0x200e
-#define HCI_OP_DISCONNECT            0x0406
-#define HCI_OP_LE_SET_ADV_PARAMS     0x2006
-#define HCI_OP_LE_SET_ADV_DATA       0x2008
-#define HCI_OP_LE_SET_ADV_ENABLE     0x200a
-
-#define HCI_LE_EV_LTK_REQUEST        0x05
-
-#define SMP_OP_SECURITY_REQ          0x0b
+#define SMP_OP_SECURITY_REQ    SMP_CODE_SECURITY_REQUEST
+#define SMP_OP_PAIRING_REQ     SMP_CODE_PAIRING_REQUEST
+#define SMP_OP_PAIRING_RSP     SMP_CODE_PAIRING_RESPONSE
+#define SMP_OP_PAIRING_CONFIRM 0x03
+#define SMP_OP_PAIRING_FAIL    SMP_CODE_PAIRING_FAILED
+#define SMP_OP_PUBLIC_KEY      0x0c
 
 #define LE_CREATE_CONN_PARAM_LEN 25
-
-#define SMP_CID_VAL         0x0006
-#define SMP_OP_PAIRING_REQ  0x01
-#define SMP_OP_PAIRING_RSP  0x02
-#define SMP_OP_PAIRING_CONFIRM 0x03
-#define SMP_OP_PAIRING_FAIL 0x05
-#define SMP_OP_PUBLIC_KEY   0x0c
-
-#define HCI_OP_LE_LTK_NEG_REPLY 0x201b
-
-struct sockaddr_hci_raw {
-    uint16_t hci_family;
-    uint16_t hci_dev;
-    uint16_t hci_channel;
-};
-
-// Power the adapter on or off through the BlueZ mgmt control socket. Returns
-// 0 only when mgmt confirmed the change; -1 when the socket failed or mgmt
-// refused (typically missing CAP_NET_ADMIN, i.e. run without sudo/setcap).
-static int mgmt_set_powered(int dev_id, uint8_t powered) {
-    int mfd = mgmt_open();
-    if (mfd < 0) return -1;
-
-    uint8_t cmd[16];
-    ssize_t n = mgmt_build_command(cmd, sizeof(cmd), MGMT_OP_SET_POWERED,
-                                   (uint16_t)dev_id, &powered, 1);
-    int rc = -1;
-    if (n > 0 && write(mfd, cmd, (size_t)n) == n) {
-        // The reply may be preceded by unrelated events: read a few.
-        for (int i = 0; i < 5; i++) {
-            struct pollfd pfd = { .fd = mfd, .events = POLLIN, .revents = 0 };
-            if (poll(&pfd, 1, 500) <= 0) break;
-            uint8_t rsp[64];
-            ssize_t r = read(mfd, rsp, sizeof rsp);
-            if (r < 9) continue;
-            // Header is 6 bytes (event, index, length), then opcode + status.
-            uint16_t ev = (uint16_t)(rsp[0] | (rsp[1] << 8));
-            uint16_t op = (uint16_t)(rsp[6] | (rsp[7] << 8));
-            if (ev == MGMT_EV_CMD_COMPLETE && op == MGMT_OP_SET_POWERED) {
-                rc = (rsp[8] == 0x00) ? 0 : -1;
-                break;
-            }
-        }
-    }
-    mgmt_close(mfd);
-    return rc;
-}
-
-// Close the HCI socket and power the adapter back on for the rest of the system.
-static void probe_teardown(int fd, int dev_id) {
-    close(fd);
-    (void)mgmt_set_powered(dev_id, 1);
-}
-
-// Envoi d'une commande HCI brute (sans attendre l'acquittement)
-static int hci_send_cmd(int fd, uint16_t opcode, const uint8_t *param, uint8_t plen) {
-    uint8_t buf[256];
-    buf[0] = HCI_COMMAND_PKT;
-    buf[1] = (uint8_t)(opcode & 0xff);
-    buf[2] = (uint8_t)(opcode >> 8);
-    buf[3] = plen;
-    if (plen && param) {
-        memcpy(&buf[4], param, plen);
-    }
-    ssize_t total = 4 + plen;
-    if (write(fd, buf, (size_t)total) != total) {
-        return -1;
-    }
-    return 0;
-}
-
-// Envoi d'un paquet ACL contenant une trame SMP
-static int send_smp_packet(int fd, uint16_t conn_handle, const uint8_t *smp_payload, uint16_t smp_len) {
-    uint8_t pkt[256];
-    uint16_t l2cap_len = smp_len;
-    uint16_t acl_len = (uint16_t)(4 + l2cap_len);
-
-    pkt[0] = HCI_ACLDATA_PKT;
-    // Handle (12 bits) + PB flag (2 bits = 00b First non-flushable) + BC (2 bits = 00b)
-    pkt[1] = (uint8_t)(conn_handle & 0xff);
-    pkt[2] = (uint8_t)(((conn_handle >> 8) & 0x0f) | 0x00); // PB=00b (first non-automatically-flushable, usual on LE)
-    pkt[3] = (uint8_t)(acl_len & 0xff);
-    pkt[4] = (uint8_t)(acl_len >> 8);
-
-    // L2CAP Header (Length 2 bytes + CID 2 bytes)
-    pkt[5] = (uint8_t)(l2cap_len & 0xff);
-    pkt[6] = (uint8_t)(l2cap_len >> 8);
-    pkt[7] = (uint8_t)(SMP_CID_VAL & 0xff);
-    pkt[8] = (uint8_t)(SMP_CID_VAL >> 8);
-
-    // SMP Payload
-    memcpy(&pkt[9], smp_payload, smp_len);
-
-    ssize_t total = 9 + smp_len;
-    return (write(fd, pkt, (size_t)total) == total) ? 0 : -1;
-}
+#define SMP_CID_VAL               0x0006
 
 // Parse an HCI Command Status event. See smp_native.h for the contract.
 int smp_parse_cmd_status(const uint8_t *evt, size_t len,
@@ -233,62 +118,31 @@ int smp_native_probe_offer(int dev_id, const uint8_t target_addr[6],
     memset(out_result, 0, sizeof(*out_result));
     out_result->link = SMP_LINK_UNKNOWN;
 
-    // Si l'adaptateur est actif dans le noyau Linux, bind(HCI_CHANNEL_USER) échoue avec EBUSY.
-    // On met l'adaptateur temporairement en sommeil via BlueZ mgmt.
-    if (mgmt_set_powered(dev_id, 0) < 0) {
-        fprintf(stderr, "  [!] Extinction de hci%d refusée ou impossible via BlueZ mgmt : lancez avec sudo ou 'make setcap'.\n", dev_id);
-    }
-    usleep(50000);
-
-    int fd = socket(AF_BLUETOOTH_VAL, SOCK_RAW, BTPROTO_HCI_VAL);
+    int fd = hci_user_channel_open(dev_id);
     if (fd < 0) {
         int err = errno;
-        (void)mgmt_set_powered(dev_id, 1);
-        if (err == EPERM || err == EACCES) {
-            fprintf(stderr, "  [!] Permission refusée pour ouvrir la socket HCI. Exécutez 'make setcap' ou 'sudo ./build/bleurp ...'\n");
-        }
-        errno = err;
-        return -1;
-    }
-
-    struct sockaddr_hci_raw sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.hci_family = AF_BLUETOOTH_VAL;
-    sa.hci_dev = (uint16_t)dev_id;
-    sa.hci_channel = HCI_CHANNEL_USER_VAL;
-
-    if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
-        int err = errno;
-        close(fd);
-        (void)mgmt_set_powered(dev_id, 1);
-        if (err == EPERM || err == EACCES) {
-            fprintf(stderr, "  [!] Permission refusée pour bind(HCI_CHANNEL_USER). Exécutez 'make setcap' ou 'sudo ./build/bleurp ...'\n");
-        } else if (err == EBUSY) {
-            fprintf(stderr, "  [!] Adaptateur hci%d occupé par un autre processus ou verrouillé par le système.\n", dev_id);
-        } else {
-            fprintf(stderr, "  [!] Échec bind(HCI_CHANNEL_USER) sur hci%d: %s (code %d)\n", dev_id, strerror(err), err);
-        }
+        fprintf(stderr, "  [!] hci%d : %s\n", dev_id, hci_user_channel_strerror(err));
         errno = err;
         return -1;
     }
 
     // 1. Initialisation du contrôleur (HCI Reset)
     printf("  [*] Initialisation du contrôleur hci%d (HCI Reset)...\n", dev_id);
-    hci_send_cmd(fd, HCI_OP_RESET, NULL, 0);
+    hci_user_channel_send_cmd(fd, HCI_OP_RESET, NULL, 0);
     usleep(80000);
 
     // 2. Configuration des masques d'événements
     uint8_t le_mask[8] = {0xff, 0x1f, 0x0a, 0x03, 0, 0, 0, 0};
-    hci_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
 
     // 3. Demande de connexion LE (LE Create Connection 0x200D)
     printf("  [*] Envoi de la requête de connexion Link Layer vers la cible...\n");
     uint8_t conn_param[LE_CREATE_CONN_PARAM_LEN];
     smp_le_create_conn_params(conn_param, addr_type, target_addr);
 
-    if (hci_send_cmd(fd, HCI_OP_LE_CREATE_CONN, conn_param, LE_CREATE_CONN_PARAM_LEN) < 0) {
+    if (hci_user_channel_send_cmd(fd, HCI_OP_LE_CREATE_CONN, conn_param, LE_CREATE_CONN_PARAM_LEN) < 0) {
         out_result->link = SMP_LINK_HCI_ERROR;
-        probe_teardown(fd, dev_id);
+        hci_user_channel_close(fd, dev_id);
         return 0;
     }
 
@@ -326,7 +180,7 @@ int smp_native_probe_offer(int dev_id, const uint8_t target_addr[6],
         }
 
         if (pkt[1] == HCI_EV_LE_META && n >= 5 &&
-            (pkt[3] == HCI_LE_EV_CONN_COMPL || pkt[3] == HCI_LE_EV_CONN_COMPL_ENH)) {
+            (pkt[3] == HCI_SUBEVT_LE_CONN_COMPLETE || pkt[3] == HCI_SUBEVT_LE_CONN_COMPLETE_ENH)) {
             if (pkt[4] == 0x00 && n >= 7) {
                 conn_handle = (uint16_t)((pkt[5] | (pkt[6] << 8)) & 0x0fff);
                 connected = true;
@@ -341,11 +195,11 @@ int smp_native_probe_offer(int dev_id, const uint8_t target_addr[6],
     if (!connected) {
         if (out_result->link != SMP_LINK_HCI_ERROR) {
             // Stop the pending connection so the controller does not keep trying.
-            (void)hci_send_cmd(fd, HCI_OP_LE_CREATE_CONN_CANCEL, NULL, 0);
+            (void)hci_user_channel_send_cmd(fd, HCI_OP_LE_CREATE_CONN_CANCEL, NULL, 0);
             usleep(20000);
             out_result->link = SMP_LINK_NOT_FOUND;
         }
-        probe_teardown(fd, dev_id);
+        hci_user_channel_close(fd, dev_id);
         return 0;
     }
 
@@ -357,8 +211,8 @@ int smp_native_probe_offer(int dev_id, const uint8_t target_addr[6],
            offer->auth_req, offer->max_key_size);
     uint8_t pairing_req[7];
     ssize_t rl = smp_build_pairing_request(pairing_req, sizeof pairing_req, offer);
-    if (rl < 0 || send_smp_packet(fd, conn_handle, pairing_req, (uint16_t)rl) < 0) {
-        probe_teardown(fd, dev_id);
+    if (rl < 0 || hci_user_channel_send_acl(fd, conn_handle, SMP_CID_VAL, pairing_req, (uint16_t)rl) < 0) {
+        hci_user_channel_close(fd, dev_id);
         return 0;
     }
 
@@ -404,10 +258,10 @@ int smp_native_probe_offer(int dev_id, const uint8_t target_addr[6],
 
     // 7. Déconnexion propre
     uint8_t disconn_param[3] = { (uint8_t)(conn_handle & 0xff), (uint8_t)(conn_handle >> 8), 0x13 };
-    hci_send_cmd(fd, HCI_OP_DISCONNECT, disconn_param, 3);
+    hci_user_channel_send_cmd(fd, HCI_OP_DISCONNECT, disconn_param, 3);
     usleep(20000);
 
-    probe_teardown(fd, dev_id);
+    hci_user_channel_close(fd, dev_id);
     return 0;
 }
 
@@ -446,7 +300,7 @@ static bool wait_ltk_request(int fd, uint16_t handle, int wait_ms) {
         uint8_t pkt[1024];
         ssize_t n = read(fd, pkt, sizeof pkt);
         if (n < 6 || pkt[0] != HCI_EVENT_PKT || pkt[1] != HCI_EV_LE_META) continue;
-        if (pkt[3] == HCI_LE_EV_LTK_REQUEST && (uint16_t)(pkt[4] | (pkt[5] << 8)) == handle) {
+        if (pkt[3] == HCI_SUBEVT_LE_LTK_REQUEST && (uint16_t)(pkt[4] | (pkt[5] << 8)) == handle) {
             return true;
         }
     }
@@ -466,7 +320,7 @@ static void send_downgraded_rsp(int fd, uint16_t handle) {
         0x00,   // initiator key distribution: none
         0x00,   // responder key distribution: none
     };
-    send_smp_packet(fd, handle, rsp, sizeof rsp);
+    hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, rsp, sizeof rsp);
 }
 
 int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
@@ -490,39 +344,20 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
     adv_data[0] = (uint8_t)alen;
     memcpy(&adv_data[1], adv_buf, alen);
 
-    if (mgmt_set_powered(dev_id, 0) < 0) {
-        fprintf(stderr, "  [!] Extinction de hci%d refusée ou impossible via BlueZ mgmt : lancez avec sudo ou 'make setcap'.\n", dev_id);
-    }
-    usleep(50000);
-
-    int fd = socket(AF_BLUETOOTH_VAL, SOCK_RAW, BTPROTO_HCI_VAL);
+    int fd = hci_user_channel_open(dev_id);
     if (fd < 0) {
         int err = errno;
-        (void)mgmt_set_powered(dev_id, 1);
-        errno = err;
-        return -1;
-    }
-
-    struct sockaddr_hci_raw sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.hci_family = AF_BLUETOOTH_VAL;
-    sa.hci_dev = (uint16_t)dev_id;
-    sa.hci_channel = HCI_CHANNEL_USER_VAL;
-    if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
-        int err = errno;
-        close(fd);
-        (void)mgmt_set_powered(dev_id, 1);
-        fprintf(stderr, "  [!] bind(HCI_CHANNEL_USER) sur hci%d : %s\n", dev_id, strerror(err));
+        fprintf(stderr, "  [!] hci%d : %s\n", dev_id, hci_user_channel_strerror(err));
         errno = err;
         return -1;
     }
 
     // Controller setup: reset, then the LE event mask (connection complete
     // and LTK request must be reported).
-    hci_send_cmd(fd, HCI_OP_RESET, NULL, 0);
+    hci_user_channel_send_cmd(fd, HCI_OP_RESET, NULL, 0);
     usleep(80000);
     uint8_t le_mask[8] = {0xff, 0x1f, 0x0a, 0x03, 0, 0, 0, 0};
-    hci_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
 
     // Advertising parameters: ADV_IND (connectable, undirected), 40 ms
     // interval, public own address, all three channels.
@@ -536,10 +371,10 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
         0x07,                   // channel map: 37, 38, 39
         0x00,                   // filter policy: none
     };
-    hci_send_cmd(fd, HCI_OP_LE_SET_ADV_PARAMS, adv_params, sizeof adv_params);
-    hci_send_cmd(fd, HCI_OP_LE_SET_ADV_DATA, adv_data, sizeof adv_data);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_PARAMS, adv_params, sizeof adv_params);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_DATA, adv_data, sizeof adv_data);
     uint8_t enable = 0x01;
-    hci_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &enable, 1);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &enable, 1);
     printf("  [*] Annonce connectable active sous l'adresse publique, attente d'une Central (%d s)...\n",
            wait_conn_ms / 1000);
 
@@ -561,7 +396,7 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
         ssize_t n = read(fd, pkt, sizeof pkt);
         if (n < 8 || pkt[0] != HCI_EVENT_PKT || pkt[1] != HCI_EV_LE_META) continue;
         uint8_t sub = pkt[3];
-        bool conn_event = (sub == HCI_LE_EV_CONN_COMPL || sub == HCI_LE_EV_CONN_COMPL_ENH);
+        bool conn_event = (sub == HCI_SUBEVT_LE_CONN_COMPLETE || sub == HCI_SUBEVT_LE_CONN_COMPLETE_ENH);
         if (conn_event && pkt[4] == 0x00 && pkt[7] == 0x01) {
             handle = (uint16_t)((pkt[5] | (pkt[6] << 8)) & 0x0fff);
             connected = true;
@@ -570,8 +405,8 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
 
     if (!connected) {
         uint8_t off = 0x00;
-        hci_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
-        probe_teardown(fd, dev_id);
+        hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
+        hci_user_channel_close(fd, dev_id);
         return 0;
     }
     obs->linked = true;
@@ -584,7 +419,7 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
     if (mode == SECREQ_MODE_REJECT_ENC) {
         if (wait_ltk_request(fd, handle, wait_react_ms)) {
             uint8_t neg[2] = { (uint8_t)(handle & 0xff), (uint8_t)(handle >> 8) };
-            hci_send_cmd(fd, HCI_OP_LE_LTK_NEG_REPLY, neg, sizeof neg);
+            hci_user_channel_send_cmd(fd, HCI_OP_LE_LTK_NEG_REPLY, neg, sizeof neg);
             obs->enc_rejected = true;
             printf("  [*] Demande de chiffrement de la Central refusée (V5) : LL_REJECT_IND.\n");
         } else {
@@ -593,7 +428,7 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
     }
 
     uint8_t sec_req[2] = { SMP_OP_SECURITY_REQ, arsr };
-    send_smp_packet(fd, handle, sec_req, sizeof sec_req);
+    hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, sec_req, sizeof sec_req);
 
     // Record the reaction. Plain and REJECT_ENC stop at the first one: a
     // Pairing Request, an LTK request, or the Central dropping the link.
@@ -635,7 +470,7 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
                 break;
             }
         } else if (pkt[0] == HCI_EVENT_PKT && pkt[1] == HCI_EV_LE_META && n >= 4 &&
-                   pkt[3] == HCI_LE_EV_LTK_REQUEST) {
+                   pkt[3] == HCI_SUBEVT_LE_LTK_REQUEST) {
             obs->ltk_request = true;
             break;
         } else if (pkt[0] == HCI_EVENT_PKT && pkt[1] == HCI_EV_DISCONN_COMPL) {
@@ -644,11 +479,11 @@ int smp_native_secreq_probe(int dev_id, uint8_t arsr, enum secreq_mode mode,
     }
 
     uint8_t disc[3] = { (uint8_t)(handle & 0xff), (uint8_t)(handle >> 8), 0x13 };
-    hci_send_cmd(fd, HCI_OP_DISCONNECT, disc, 3);
+    hci_user_channel_send_cmd(fd, HCI_OP_DISCONNECT, disc, 3);
     usleep(20000);
     uint8_t off = 0x00;
-    hci_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
-    probe_teardown(fd, dev_id);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
+    hci_user_channel_close(fd, dev_id);
     return 0;
 }
 

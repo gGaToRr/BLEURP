@@ -10,7 +10,7 @@
 CC      := gcc
 # -pthread: the BLERP double-channel MitM (src/smp_native/blerp_attack.c) runs
 # the PI and CI sub-attacks concurrently on two adapters.
-CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -pthread -Isrc -Isrc/send_attack -Isrc/smp_native -Itests
+CFLAGS  := -std=c11 -Wall -Wextra -Werror -O2 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE -pthread -Isrc -Isrc/send_attack -Isrc/smp_native -Isrc/wire -Isrc/cli -Itests
 LDLIBS  := -lbluetooth -lm -lcrypto -pthread $(shell pkg-config --libs dbus-1)
 CFLAGS  += $(shell pkg-config --cflags dbus-1)
 # Absolute path to the bundled FIGlet font used for the menu banner (see
@@ -24,7 +24,7 @@ BUILD   := build
 BIN     := $(BUILD)/bleurp
 
 # Library sources (excludes main.c so tests can link freely).
-SRC := $(filter-out src/main.c,$(wildcard src/*.c) $(wildcard src/send_attack/*.c) $(wildcard src/smp_native/*.c))
+SRC := $(filter-out src/main.c,$(wildcard src/*.c) $(wildcard src/send_attack/*.c) $(wildcard src/smp_native/*.c) $(wildcard src/wire/*.c) $(wildcard src/cli/*.c))
 OBJ := $(SRC:src/%.c=$(BUILD)/%.o)
 
 # One test binary per tests/test_*.c file.

@@ -1,7 +1,7 @@
 // ========================================
 //  nom du fichier: test_cli.c
 //  description courte: Unit tests for cli_parse(): defaults, every accepted
-//  flag (-i/-t/-o/--json/--passive/--active/-h), and rejection of invalid
+//  flag (-i/-t/-o/--json/--passive/--active/-v/-h), and rejection of invalid
 //  interfaces, durations, output paths, and unknown options.
 //  dernière modification : 2026-09-26
 //  auteur: GitHub/@gGaToRr
@@ -34,6 +34,7 @@ static void test_defaults(void) {
     CHECK(o.output[0] == '\0');
     CHECK(o.json == false);
     CHECK(o.passive == false);
+    CHECK(o.verbose == false);
     CHECK(o.help == false);
 }
 
@@ -117,6 +118,24 @@ static void test_flags(void) {
     CHECK(o.passive == false);
 }
 
+// -v and --verbose are equivalent, and off by default.
+static void test_verbose(void) {
+    struct cli_opts o;
+    char err[128];
+
+    PARSE(&o, err, sizeof err, "-v");
+    CHECK(status_ == CLI_OK);
+    CHECK(o.verbose == true);
+
+    PARSE(&o, err, sizeof err, "--verbose");
+    CHECK(status_ == CLI_OK);
+    CHECK(o.verbose == true);
+
+    PARSE(&o, err, sizeof err);
+    CHECK(status_ == CLI_OK);
+    CHECK(o.verbose == false);
+}
+
 // -h/--help stops parsing and reports CLI_HELP without treating it as an
 // error, even when combined with other flags.
 static void test_help(void) {
@@ -166,6 +185,7 @@ int main(void) {
     test_duration();
     test_output();
     test_flags();
+    test_verbose();
     test_help();
     test_invalid_option();
     test_combined();

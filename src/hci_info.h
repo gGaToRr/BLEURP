@@ -26,7 +26,7 @@ struct hci_local_version {
 };
 
 // Parse a Command Complete event for Read Local Version Information.
-// `evt` points at the event code byte (HCI_EVT_CMD_COMPLETE), i.e. the HCI
+// `evt` points at the event code byte (HCI_EV_CMD_COMPLETE), i.e. the HCI
 // packet type indicator has already been stripped. `len` is the number of
 // bytes available at `evt`.
 // Returns 0 on success, or -1 with errno set:

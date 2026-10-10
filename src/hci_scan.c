@@ -9,7 +9,7 @@
 
 #include "hci_scan.h"
 #include "hci_cmd.h"
-#include "hci.h"
+#include "hci_wire.h"
 
 #include <errno.h>
 #include <string.h>
@@ -242,7 +242,7 @@ int hci_dispatch_event(const uint8_t *evt, size_t len,
         errno = EBADMSG;
         return -1;
     }
-    if (evt[0] != HCI_EVT_LE_META) {
+    if (evt[0] != HCI_EV_LE_META) {
         return 0; // not an LE meta event: nothing to dispatch
     }
 

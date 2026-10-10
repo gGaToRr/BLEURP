@@ -87,6 +87,34 @@ bool mgmt_has_setting(uint32_t settings, uint32_t flag) {
     return (settings & flag) != 0;
 }
 
+// Parse a Command Complete header. See mgmt.h for the contract.
+int mgmt_parse_cmd_complete(const uint8_t *evt, size_t len,
+                            uint16_t *out_opcode, uint8_t *out_status) {
+    if (evt == NULL || out_opcode == NULL || out_status == NULL) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    struct mgmt_hdr h;
+    if (mgmt_parse_header(evt, len, &h) < 0) {
+        return -1; // errno already set
+    }
+    if (h.opcode != MGMT_EV_CMD_COMPLETE) {
+        errno = EBADMSG;
+        return -1;
+    }
+    // Command Complete params: cmd_opcode(2) status(1) return_params(...).
+    if (h.len < 3 || len < MGMT_HDR_SIZE + 3) {
+        errno = EBADMSG;
+        return -1;
+    }
+
+    const uint8_t *p = evt + MGMT_HDR_SIZE;
+    *out_opcode = rd_le16(p);
+    *out_status = p[2];
+    return 0;
+}
+
 // Build a Start Discovery command. See mgmt.h for the contract.
 ssize_t mgmt_build_start_discovery(uint8_t *buf, size_t buf_len,
                                    uint16_t index, uint8_t addr_type_mask) {

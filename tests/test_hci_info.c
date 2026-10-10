@@ -9,7 +9,7 @@
 
 #include "test.h"
 #include "hci_info.h"
-#include "hci.h"
+#include "hci_wire.h"
 
 #include <errno.h>
 #include <string.h>
@@ -17,7 +17,7 @@
 // Build a Read Local Version "Command Complete" event into `buf` for a given
 // HCI version. Returns the number of bytes written (14).
 static size_t make_local_version_evt(uint8_t *buf, uint8_t hci_version) {
-    buf[0]  = HCI_EVT_CMD_COMPLETE;       // event code
+    buf[0]  = HCI_EV_CMD_COMPLETE;       // event code
     buf[1]  = 0x0c;                       // parameter total length (12)
     buf[2]  = 0x01;                       // num HCI command packets
     buf[3]  = 0x01;                       // opcode LSB (0x1001)

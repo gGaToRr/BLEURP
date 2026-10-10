@@ -25,6 +25,7 @@ struct cli_opts {
     char output[CLI_OUTPUT_MAX]; // -o/--output path; empty = no output file
     bool json;                 // --json: emit machine-readable JSON
     bool passive;              // --passive: listen only (default is active)
+    bool verbose;               // -v/--verbose: show a per-device details line
     bool help;                  // -h/--help was requested
 };
 
@@ -37,14 +38,14 @@ typedef enum {
 } cli_status_t;
 
 // Reset `out` to its defaults: hci0, duration 0 (until Ctrl-C), no output
-// file, JSON off, active scan, help not requested.
+// file, JSON off, active scan, not verbose, help not requested.
 void cli_set_defaults(struct cli_opts *out);
 
 // Parse `argv[0..argc)` into `out` (already reset by cli_set_defaults).
 // On CLI_ERR, a human-readable, English message is written into `err`
 // (a caller-owned buffer of `errlen` bytes) describing what was wrong.
 // Accepted flags: -i/--iface <name|index>, -t/--time <seconds>,
-// -o/--output <file>, --json, --passive, --active, -h/--help.
+// -o/--output <file>, --json, --passive, --active, -v/--verbose, -h/--help.
 cli_status_t cli_parse(int argc, char **argv, struct cli_opts *out,
                         char *err, size_t errlen);
 

@@ -96,6 +96,70 @@ static void test_build_null_params(void) {
     CHECK(errno == EINVAL);
 }
 
+// mgmt_parse_cmd_complete() decodes the opcode-that-completed and status
+// byte following the header, for commands whose reply carries no other
+// return parameters (e.g. MGMT_OP_SET_POWERED).
+static void test_cmd_complete_ok(void) {
+    // header(6) + cmd_opcode(2)=0x0005 + status(1)=0x00.
+    const uint8_t evt[] = {0x01, 0x00, 0x00, 0x00, 0x03, 0x00,
+                           0x05, 0x00, 0x00};
+    uint16_t opcode;
+    uint8_t status;
+    int r = mgmt_parse_cmd_complete(evt, sizeof evt, &opcode, &status);
+    CHECK(r == 0);
+    CHECK(opcode == MGMT_OP_SET_POWERED);
+    CHECK(status == 0x00);
+}
+
+// A non-zero status is reported as-is, not translated into a failure --
+// callers decide what a non-zero status means for their command.
+static void test_cmd_complete_nonzero_status(void) {
+    const uint8_t evt[] = {0x01, 0x00, 0x00, 0x00, 0x03, 0x00,
+                           0x05, 0x00, 0x0c}; // status 0x0c
+    uint16_t opcode;
+    uint8_t status;
+    int r = mgmt_parse_cmd_complete(evt, sizeof evt, &opcode, &status);
+    CHECK(r == 0);
+    CHECK(status == 0x0c);
+}
+
+// Any event other than Command Complete is rejected.
+static void test_cmd_complete_wrong_event(void) {
+    const uint8_t evt[] = {0x02, 0x00, 0x00, 0x00, 0x03, 0x00,
+                           0x05, 0x00, 0x00}; // event 0x0002 = Command Status
+    uint16_t opcode;
+    uint8_t status;
+    errno = 0;
+    CHECK(mgmt_parse_cmd_complete(evt, sizeof evt, &opcode, &status) == -1);
+    CHECK(errno == EBADMSG);
+}
+
+// A buffer truncated before the status byte is rejected, not read OOB.
+static void test_cmd_complete_truncated(void) {
+    const uint8_t evt[] = {0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x05, 0x00};
+    uint16_t opcode;
+    uint8_t status;
+    errno = 0;
+    CHECK(mgmt_parse_cmd_complete(evt, sizeof evt, &opcode, &status) == -1);
+    CHECK(errno == EBADMSG);
+}
+
+// NULL arguments are rejected.
+static void test_cmd_complete_null_args(void) {
+    const uint8_t evt[] = {0x01, 0x00, 0x00, 0x00, 0x03, 0x00, 0x05, 0x00, 0x00};
+    uint16_t opcode;
+    uint8_t status;
+    errno = 0;
+    CHECK(mgmt_parse_cmd_complete(NULL, sizeof evt, &opcode, &status) == -1);
+    CHECK(errno == EINVAL);
+    errno = 0;
+    CHECK(mgmt_parse_cmd_complete(evt, sizeof evt, NULL, &status) == -1);
+    CHECK(errno == EINVAL);
+    errno = 0;
+    CHECK(mgmt_parse_cmd_complete(evt, sizeof evt, &opcode, NULL) == -1);
+    CHECK(errno == EINVAL);
+}
+
 // A full header is decoded into opcode, index and length.
 static void test_parse_header_ok(void) {
     // Command Complete event, controller 0, 4 param bytes.
@@ -347,6 +411,11 @@ int main(void) {
     test_build_index_le();
     test_build_too_small();
     test_build_null_params();
+    test_cmd_complete_ok();
+    test_cmd_complete_nonzero_status();
+    test_cmd_complete_wrong_event();
+    test_cmd_complete_truncated();
+    test_cmd_complete_null_args();
     test_parse_header_ok();
     test_parse_header_index_none();
     test_parse_header_bad();

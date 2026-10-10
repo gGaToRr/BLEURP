@@ -8,7 +8,7 @@
 // ========================================
 
 #include "hci_info.h"
-#include "hci.h"
+#include "hci_wire.h"
 
 #include <errno.h>
 
@@ -32,7 +32,7 @@ int hci_parse_local_version(const uint8_t *evt, size_t len,
 
     // Reject anything that is not a complete, matching event.
     if (len < HCI_LOCAL_VERSION_EVT_LEN ||
-        evt[0] != HCI_EVT_CMD_COMPLETE ||
+        evt[0] != HCI_EV_CMD_COMPLETE ||
         rd_le16(&evt[3]) != HCI_OP_READ_LOCAL_VERSION) {
         errno = EBADMSG;
         return -1;
