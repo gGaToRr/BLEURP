@@ -46,6 +46,7 @@
 #include "cli.h"
 #include "blerp_attack.h"
 #include "blerp_mitm_relay.h"
+#include "hardened_audit.h"
 
 // How often to re-arm discovery, to keep reports flowing and refresh the
 // view (wifite keeps a continuous scan going and redraws steadily).
@@ -1349,6 +1350,11 @@ static int cmd_blerp(int argc, char **argv) {
         }
         rc = blerp_run_audit(&cfg, pbond, &rep);
         blerp_print_report(&cfg, pbond, &rep);
+        {
+            struct hardened_audit_report hrep;
+            hardened_audit_classify(&rep, &hrep);
+            hardened_audit_print(&hrep);
+        }
         if (rep.phase2_completed ||
             rep.verdicts[BLERP_V2_UNAUTH_REPAIR] == BLERP_VERDICT_YES ||
             rep.verdicts[BLERP_V4_LEVEL_DOWNGRADE] == BLERP_VERDICT_YES ||
