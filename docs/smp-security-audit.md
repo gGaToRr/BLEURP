@@ -1,6 +1,6 @@
 # SMP Security Audit & Re-pairing Check
 
-BLEURP implements two SMP (Security Manager Protocol) diagnostics, both driven by the native HCI User Channel (`src/smp_native/`):
+BLEURP implements two SMP (Security Manager Protocol) diagnostics, both driven by the native HCI User Channel (`src/smp/` ou `src/blerp/`):
 
 | Mode | Command | What it does | Needs a bond? |
 | :--- | :--- | :--- | :--- |
@@ -50,7 +50,7 @@ The key point: **every BLERP issue compares the new negotiation with a bond that
 
 Connects over the HCI User Channel, sends the weakest offer (`AuthReq=0x01` bonding only, `KeySize=7`, NoInputNoOutput), then reads the first reply and disconnects. It never sends a second message, so no key is derived.
 
-- The module is `src/smp_native/smp_native.c`. It reports where it stopped: no link, controller refusal (HCI status), connected without SMP reply, or SMP reply.
+- The module is `src/smp/smp_native.c`. It reports where it stopped: no link, controller refusal (HCI status), connected without SMP reply, or SMP reply.
 - Requires `CAP_NET_ADMIN` (`make setcap`) or `sudo`: the adapter is powered off through BlueZ mgmt, then bound with `HCI_CHANNEL_USER`.
 
 ```sh
@@ -139,8 +139,8 @@ The tool reads the stored bond (`Authenticated`, `EncSize`), offers the weak pai
 
 | File | Role |
 | :--- | :--- |
-| `src/smp_native/smp_native.c` | HCI User Channel probe: link, HCI status, offer, reply, printing. |
-| `src/smp_native/repair.c` | Bond file parser, bond listing, sysfs adapter address, verdict classification (pure). |
+| `src/smp/smp_native.c` | HCI User Channel probe: link, HCI status, offer, reply, printing. |
+| `src/blerp/repair.c` | Bond file parser, bond listing, sysfs adapter address, verdict classification (pure). |
 | `src/smp.c`, `src/smp.h` | SMP codec and the shared weak offer. |
 | `src/main.c` | `smp` and `repair` subcommands, menu entry `[-5-]`. |
 | `tests/test_repair.c`, `tests/test_smp_native.c` | Unit tests for the parser, the classifier and the HCI helpers. |

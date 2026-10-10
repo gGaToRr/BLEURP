@@ -44,7 +44,7 @@ Le papier démontre 6 vulnérabilités distinctes dans les machines à états SM
 
 ## 3. Vecteurs d'Attaque Implémentés en C Natif
 
-L'implémentation dans `src/smp_native/blerp_attack.c` fournit trois modes d'attaque autonomes et un mode d'audit complet via le canal HCI direct (`HCI_CHANNEL_USER`).
+L'implémentation dans `src/blerp/blerp_attack.c` fournit trois modes d'attaque autonomes et un mode d'audit complet via le canal HCI direct (`HCI_CHANNEL_USER`).
 
 ### 3.1 Peripheral Impersonation (PI)
 

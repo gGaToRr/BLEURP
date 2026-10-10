@@ -31,9 +31,9 @@ Deux constats du papier ne sont pas des vulnérabilités au sens strict, mais il
 | Fichier | Rôle | Pourquoi ce module existe |
 | :--- | :--- | :--- |
 | `src/smp.c`, `src/smp.h` | Codec SMP (Pairing Request, Response, Failed, Security Request), et l'offre faible partagée | Une seule source pour les octets envoyés. Les deux sondes envoient la même offre, donc leurs résultats sont comparables. |
-| `src/smp_native/smp_native.c`, `smp_native.h` | Accès bas niveau à l'adaptateur (HCI User Channel) : sonde d'appairage initial, sonde de Security Request côté Peripheral | Il faut le canal USER pour envoyer des trames SMP sans que la pile BlueZ intervienne. |
-| `src/smp_native/repair.c`, `repair.h` | Lecture du bond BlueZ, liste des appareils appairés, adresse de l'adaptateur, classification du re-pairing | Le bond est le « ARPK » du papier : sans lui, rien à comparer. |
-| `src/smp_native/secreq.c`, `secreq.h` | Logique pure du test Security Request : annonce minimale, estimation d'ARPK, réaction attendue, non-conformité | Séparée de l'I/O pour pouvoir être testée sans adaptateur. |
+| `src/smp/smp_native.c`, `smp_native.h` | Accès bas niveau à l'adaptateur (HCI User Channel) : sonde d'appairage initial, sonde de Security Request côté Peripheral | Il faut le canal USER pour envoyer des trames SMP sans que la pile BlueZ intervienne. |
+| `src/blerp/repair.c`, `repair.h` | Lecture du bond BlueZ, liste des appareils appairés, adresse de l'adaptateur, classification du re-pairing | Le bond est le « ARPK » du papier : sans lui, rien à comparer. |
+| `src/blerp/secreq.c`, `secreq.h` | Logique pure du test Security Request : annonce minimale, estimation d'ARPK, réaction attendue, non-conformité | Séparée de l'I/O pour pouvoir être testée sans adaptateur. |
 | `src/main.c` | Sous-commandes `smp`, `repair`, `secreq` et affichage des verdicts | Point d'entrée utilisateur. Aucune logique de protocole n'est écrite ici. |
 | `tests/test_smp.c`, `test_smp_native.c`, `test_repair.c`, `test_secreq.c` | Tests unitaires | Règle `rules.txt` : TDD. Les tests ne demandent ni adaptateur ni root. |
 

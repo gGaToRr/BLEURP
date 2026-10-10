@@ -1,8 +1,8 @@
 # BLE HID Peripheral Emulation & Keystroke Injection
 
 BLEURP provides two independent subsystems for HID over GATT Profile (HOGP) interaction and authorized keystroke injection testing:
-1. **Native Peripheral Mode (`src/peripheral_native.c`)**: Turns your Linux PC into a standalone BLE Keyboard peripheral via raw HCI User Channel, handling full GATT and SMP cryptographic handshakes.
-2. **BlueZ D-Bus HID Engine (`src/send_attack/`)**: Connects to target hosts via BlueZ D-Bus APIs to inject DuckyScript payloads.
+1. **Native Peripheral Mode (`src/hid/peripheral_native.c`)**: Turns your Linux PC into a standalone BLE Keyboard peripheral via raw HCI User Channel, handling full GATT and SMP cryptographic handshakes.
+2. **BlueZ D-Bus HID Engine (`src/hid/send_attack/`)**: Connects to target hosts via BlueZ D-Bus APIs to inject DuckyScript payloads.
 
 > ⚠️ **Authorized use only.** HID injection tests must strictly be conducted on target systems you own or have explicit authorization to assess.
 
@@ -46,7 +46,7 @@ The native peripheral module drives the Bluetooth controller directly at the HCI
 ./build/bleurp keyboard -i 0
 
 # Start with custom device name and auto-execute DuckyScript payload on connect:
-./build/bleurp keyboard -i 0 -n "Logitech MX Keys" -d src/send_attack/payloads/demo-hello.txt
+./build/bleurp keyboard -i 0 -n "Logitech MX Keys" -d src/hid/send_attack/payloads/demo-hello.txt
 ```
 
 ---
@@ -65,13 +65,13 @@ The `send_attack` subsystem leverages the host BlueZ stack to discover, pair, tr
 └────────────────────────────┬─────────────────────────────┘
                              │
                              ▼
-               src/send_attack/ducky.c (Parser)
+               src/hid/send_attack/ducky.c (Parser)
                              │
                              ▼
-               src/send_attack/keymap.c (ASCII to HID Codes)
+               src/hid/send_attack/keymap.c (ASCII to HID Codes)
                              │
                              ▼
-               src/send_attack/bluez.c (D-Bus Pair & Send)
+               src/hid/send_attack/bluez.c (D-Bus Pair & Send)
 ```
 
 ### Supported DuckyScript Syntax
@@ -86,7 +86,7 @@ The `send_attack` subsystem leverages the host BlueZ stack to discover, pair, tr
 
 ### Bundled Payloads
 
-Payloads are stored in `src/send_attack/payloads/`:
+Payloads are stored in `src/hid/send_attack/payloads/`:
 - `demo-hello.txt`: Harmless demonstration typing "Hello from BLEURP!".
 - `linux-terminal.txt`: Spawns GNOME/Linux terminal (`Ctrl+Alt+T`).
 - `windows-cmd.txt`: Opens Windows Run (`Win+R`) and runs command prompt.
@@ -98,5 +98,5 @@ Payloads are stored in `src/send_attack/payloads/`:
 
 ```sh
 # Inject payload to target device:
-./build/bleurp hid -i hci0 -t AA:BB:CC:DD:EE:FF -f src/send_attack/payloads/demo-hello.txt
+./build/bleurp hid -i hci0 -t AA:BB:CC:DD:EE:FF -f src/hid/send_attack/payloads/demo-hello.txt
 ```

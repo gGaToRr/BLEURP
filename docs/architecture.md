@@ -1,6 +1,6 @@
-# BLEURP — Architecture
+# BLEURP v2 — Architecture
 
-A modular, dependency-free BLE security scanner and audit toolkit written in C for Linux. Each module is built and tested in isolation (TDD) before being wired into the tool.
+A modular, dependency-free BLE security scanner and audit toolkit written in C for Linux. Each module is built and tested in isolation (TDD) before being wired into the tool. This is the v2 rewrite (`v2/rewrite` branch): same philosophy as v1, restructured into one directory per concern instead of a flat `src/`, with duplicated HCI/mgmt plumbing consolidated into shared modules and `main.c` reduced to pure dispatch. See "What changed from v1" below for the concrete before/after.
 
 ---
 
@@ -8,64 +8,115 @@ A modular, dependency-free BLE security scanner and audit toolkit written in C f
 
 ```
   src/
-    Phase 1 (Discovery & Parsing):
-      hci.h                  wire constants: packet types + LE scan opcodes
-      hci_cmd.c / .h         build raw HCI command packets                  [DONE, tested]
-      hci_dev.c / .h         open/bind raw HCI socket & controller queries  [DONE, tested]
-      hci_info.c / .h        read controller version, pick legacy/ext       [DONE, tested]
-      hci_scan.c / .h        scan commands, mode switch, event dispatch     [DONE, tested]
-      mgmt.c / .h            kernel mgmt: socket, packets, controller info  [DONE, tested]
-      ad_parse.c / .h        decode AD (name, UUIDs, company), labels       [DONE, tested]
-      addr_priv.c / .h       classify BLE address privacy (RPA/Static/etc.) [DONE, tested]
-      dev_table.c / .h       merge/dedup Device Found, best name + RSSI     [DONE, tested]
-      cli.c / .h             argv -> struct cli_opts (-i/-t/-o/--json/...)  [DONE, tested]
+    wire/                     Shared HCI_CHANNEL_USER plumbing (the one thing
+                               every raw-HCI engine below needs):
+      hci_wire.h                 HCI packet types, opcodes, event/sub-event
+                                  codes -- single source, supersedes the old
+                                  per-file copies.
+      hci_user_channel.c/.h      open/close the exclusive HCI_CHANNEL_USER
+                                  socket (+ mgmt power toggle), raw command
+                                  and ACL/L2CAP packet send.             [tested]
 
-    Phase 2 (GATT Connection & Access Audit):
-      att.c / .h             ATT PDU build/parse (GATT protocol engine)     [DONE, tested]
-      l2cap.c / .h           connect ATT (CID 4) / SMP (CID 6) sockets      [DONE, tested]
-      gatt.c / .h            discovery + read/write/subscribe/descriptors   [DONE, tested]
-      audit.c / .h           unauthenticated characteristic access audit    [DONE, tested]
+    cli/
+      cli.c/.h                   argv -> struct cli_opts (-i/-t/-o/--json/
+                                  --passive/--active/-v/-h), used by `scan`.   [tested]
 
-    Phase 3 (Recon, SMP Security & Keystroke Injection):
-      banner.c / .h          FIGlet slant font parser + rainbow gradient    [DONE]
-      fingerprint.c / .h     passive device categorization & exposure score [DONE, tested]
-      smp.c / .h             SMP packet codec & L2CAP CID 6 downgrade probe [DONE, tested]
-      smp_native/
-        smp_native.c / .h    native HCI User Channel SMP diagnostic probe   [DONE, tested]
-      peripheral_native.c/.h native BLE HOGP Keyboard emulator + SMP STK    [DONE, tested]
+    recon/                    Phase 1: discovery & parsing
+      hci_dev.c/.h                raw (non-exclusive) HCI socket open/close [tested]
+      hci_info.c/.h               controller version -> legacy/extended      [tested]
+      hci_scan.c/.h               LE scan command builders + event dispatch  [tested]
+      hci_cmd.c/.h                raw HCI command packet builder             [tested]
+      ad_parse.c/.h                advertising-data parser                   [tested]
+      addr_priv.c/.h               address privacy classification            [tested]
+      dev_table.c/.h               discovered-device table                   [tested]
+      fingerprint.c/.h              passive device fingerprinting            [tested]
+
+    gatt/                     Phase 2: GATT connection & access audit
+      att.c/.h                    ATT PDU codec                              [tested]
+      l2cap.c/.h                   connect ATT (CID 4) / SMP (CID 6)         [tested]
+      gatt.c/.h                     discovery + read/write/subscribe        [tested]
+      audit.c/.h                    unauthenticated-access classifier        [tested]
+
+    mgmt/
+      mgmt.c/.h                   kernel BlueZ management (mgmt) socket      [tested]
+
+    smp/                      SMP core
+      smp.c/.h                    SMP PDU codec (Pairing Req/Rsp, opcodes)   [tested]
+      smp_legacy.c/.h              Legacy pairing crypto (c1/s1/STK)         [tested]
+      smp_sc.c/.h                  NEW: LE Secure Connections toolbox --
+                                   ECDH P-256 + f4/f5/f6/g2 (AES-CMAC)       [tested]
+      smp_sc_engine.c/.h           NEW: SC Just Works Phase 2 state machine
+                                   (both roles), built on smp_sc.c          [tested]
+      smp_native.c/.h              HCI_CHANNEL_USER diagnostic probe        [tested]
+
+    blerp/                    BLERP attack engine (NDSS 2026)
+      secreq.c/.h                  Security Request test, pure logic        [tested]
+      repair.c/.h                   re-pairing downgrade check, pure logic  [tested]
+      blerp_attack.c/.h             PI / CI / double-channel MitM / full
+                                   V1-V6 audit cascade; PI can complete SC
+                                   (-S flag) via smp_sc_engine.c instead of
+                                   only downgrading to Legacy               [tested]
+      blerp_mitm_relay.c/.h        NEW: single-channel MitM -- relays real
+                                   SMP PDUs between the two victims,
+                                   tampering only the feature-negotiation
+                                   ones (Fig. 6 of the paper)               [tested]
+      hardened_audit.c/.h          NEW: VII-A hardened re-pairing rule
+                                   classification (Consistency Check /
+                                   Anti-Downgrade / Encryption Failure
+                                   Termination), derived from the existing
+                                   V1-V6 report                             [tested]
+      authenticated_repair.c/.h    NEW: VII-B reference protocol (key
+                                   chaining + transcript hashing); a
+                                   demonstration that the paper's proposed
+                                   fix defeats BLERP, not something a real
+                                   unmodified stack speaks                  [tested]
+
+    hid/                      HID keyboard emulation & injection
+      peripheral_native.c/.h      native HOGP Keyboard peripheral + SMP STK [tested]
       send_attack/
-        ducky.c / .h         DuckyScript syntax parser                      [DONE]
-        hid.c / .h           HID Report Descriptor & GATT HID Service       [DONE]
-        hid_cmd.c / .h       CLI subcommand orchestration for HID attack    [DONE]
-        keymap.c / .h        ASCII to USB HID keycode translation           [DONE]
-        bluez.c / .h         BlueZ D-Bus pairing, trust, and connection     [DONE]
-        payloads/            DuckyScript attack payloads (OS-specific)      [DONE]
+        ducky.c/.h                  DuckyScript parser                      [DONE]
+        hid.c/.h                     HID Report Descriptor & GATT service    [DONE]
+        hid_cmd.c/.h                  CLI subcommand orchestration           [DONE]
+        keymap.c/.h                    ASCII -> USB HID keycode              [DONE]
+        bluez.c/.h                      BlueZ D-Bus pairing/trust/connect    [DONE]
+        payloads/                        bundled DuckyScript payloads        [DONE]
 
-    User Interface & Entry Point:
-      ui.c / .h              wifite-style live table + fingerprint table    [DONE, tested]
-      main.c                 CLI dispatcher, interactive menu, wizards      [DONE]
+    ui.c/.h, banner.c/.h       terminal UI + FIGlet banner                   [tested]
 
-  tests/
-    test.h                   tiny standalone assertion framework
-    test_addr_priv.c         unit tests for addr_priv                       [DONE]
-    test_ad_parse.c          unit tests for ad_parse                        [DONE]
-    test_att.c               unit tests for att codec                       [DONE]
-    test_audit.c             unit tests for GATT audit classifier           [DONE]
-    test_cli.c               unit tests for cli parser                      [DONE]
-    test_dev_table.c         unit tests for device table deduplication      [DONE]
-    test_fingerprint.c       unit tests for passive fingerprinting          [DONE]
-    test_gatt.c              unit tests for GATT discovery / transactions   [DONE]
-    test_hci_cmd.c           unit tests for HCI command framing             [DONE]
-    test_hci_dev.c           unit tests for HCI device socket helpers       [DONE]
-    test_hci_info.c          unit tests for HCI version detection           [DONE]
-    test_hci_scan.c          unit tests for HCI scan event dispatch         [DONE]
-    test_l2cap.c             unit tests for L2CAP address structures        [DONE]
-    test_mgmt.c              unit tests for mgmt protocol build/parse       [DONE]
-    test_peripheral_native.c unit tests for native peripheral & SMP crypto  [DONE]
-    test_smp.c               unit tests for SMP packet codec                [DONE]
-    test_smp_native.c        unit tests for native SMP probe logic          [DONE]
-    test_ui.c                unit tests for UI rendering and RSSI bars      [DONE]
+    cmd/                      One file per CLI subcommand -- a thin
+                               getopt() parse + call into the module above:
+      common.c/.h                 shared argv/menu-prompt utilities
+                                   (parse_addr, parse_long_arg, read_line,
+                                   ask_yes_no/number/interface, print_verdict) [tested]
+      scan.c/.h                    `scan`                                   [tested]
+      gatt_cmd.c/.h                 `enum`/`audit`/`read`/`write`
+      smp_cmd.c/.h                   `smp`
+      repair_cmd.c/.h                 `repair`
+      secreq_cmd.c/.h                  `secreq`
+      blerp_cmd.c/.h                    `blerp`
+
+    menu/
+      menu.c/.h                   the interactive menu and every wizard it
+                                   drives, plus `autotry`/`keyboard` (share
+                                   helpers with the wizards). Kept as one
+                                   file: no automated test coverage (pure
+                                   terminal I/O) and heavily cross-coupled
+                                   internally -- splitting further would
+                                   trade a real, unverifiable regression
+                                   risk for a cosmetic win.
+
+    main.c                     usage() + argv[1] dispatch table. No logic
+                               of its own.
+
+  tests/                      Same philosophy: test.h's CHECK()/TEST_REPORT(),
+                               pure logic, no hardware/root required. One
+                               file per module above; new in v2:
+                               test_hci_user_channel.c, test_smp_sc.c,
+                               test_smp_sc_engine.c, test_blerp_mitm_relay.c,
+                               test_hardened_audit.c, test_authenticated_repair.c.
 ```
+
+Non-regression rule: **no stub**. Every public function shipped either does what its comment says, or does not exist yet — no silent "TODO" that compiles clean. (v1 shipped `blerp_run_mitm` as exactly that kind of stub for a while; the fix is what started this rewrite.)
 
 ---
 
@@ -73,7 +124,7 @@ A modular, dependency-free BLE security scanner and audit toolkit written in C f
 
 ```sh
 make        # compile library objects and build/bleurp binary
-make test   # build and run all 18 test suites in tests/
+make test   # build and run every test binary in tests/
 make clean  # remove build/ directory
 ```
 
@@ -90,19 +141,31 @@ Compilation flags: `-std=c11 -Wall -Wextra -Werror -O2`.
                                                 │
          ┌──────────────────────────────┬───────┴──────────────────────┬──────────────────────────────┐
          ▼                              ▼                              ▼                              ▼
-  [Passive Scan]              [GATT Access Audit]            [SMP Security Probe]         [HID Peripheral Mode]
+  [Passive Scan]              [GATT Access Audit]            [SMP / BLERP Security]        [HID Peripheral Mode]
          │                              │                              │                              │
          ▼                              ▼                              ▼                              ▼
-  mgmt discovery                 L2CAP ATT (CID 4)              HCI User Channel /            HCI User Channel /
-         │                              │                       L2CAP SMP (CID 6)             D-Bus BlueZ
-         ▼                              ▼                              │                              │
-  ad_parse & fingerprint         ATT read/write &              AuthReq & Key Size             HOGP GATT + SMP STK
-         │                       audit classifier              Downgrade Probing              AES-128 Crypto &
-         ▼                              │                              │                      Keystroke Injection
-  Live UI + Exposure Score              ▼                              ▼                              │
+  mgmt discovery /               L2CAP ATT (CID 4)              HCI User Channel /            HCI User Channel /
+  raw HCI passive scan                                         L2CAP SMP (CID 6)             D-Bus BlueZ
+         │                              │                              │                              │
+         ▼                              ▼                              ▼                              ▼
+  ad_parse & fingerprint         ATT read/write &              AuthReq/KeySize/SC             HOGP GATT + SMP STK
+         │                       audit classifier              downgrade, V1-V6,              AES-128 Crypto &
+         ▼                              │                       VII-A/VII-B                   Keystroke Injection
+  Live UI + Exposure Score              ▼                              │                              │
                                  Security Verdict               Vulnerability Verdict                 ▼
                                                                                                Target Execution
 ```
+
+---
+
+## What changed from v1
+
+- **Dead code wired in, not left to rot.** `cli.c`'s `cli_parse()` was tested (43 checks) but never called by `main.c`; `hci_scan.c`'s passive/legacy/extended scan engine was tested (116 checks) but never called either. Both are now live (`scan --passive`, `scan -v`).
+- **One HCI_CHANNEL_USER implementation, not four.** The "mgmt power off → open → bind → … → mgmt power on" sequence, plus the raw HCI command and ACL/L2CAP packet builders, were independently reimplemented in `smp_native.c`, `blerp_attack.c`, and `peripheral_native.c`. Now: `src/wire/hci_user_channel.c`.
+- **`main.c`: 3438 lines → 87.** Every subcommand moved to `src/cmd/`, the entire interactive menu/wizard subsystem to `src/menu/menu.c`.
+- **LE Secure Connections support** (`src/smp/smp_sc.c`, `smp_sc_engine.c`): the attack engine previously could only downgrade to Legacy pairing, which fails outright against a peer locked to Secure Connections Only. `bleurp blerp pi -S` completes real SC Just Works instead.
+- **Single-channel MitM** (`src/blerp/blerp_mitm_relay.c`, `bleurp blerp mitm-single`): the paper's other MitM variant (Fig. 6), never implemented in v1.
+- **The paper's two countermeasures**, as a detector (`hardened_audit.c`, wired into `blerp audit`) and a reference implementation (`authenticated_repair.c`, library-only with its own test suite — see its header for why no CLI wraps it).
 
 ---
 
@@ -114,6 +177,7 @@ Compilation flags: `-std=c11 -Wall -Wextra -Werror -O2`.
 - [`ble-attack-surface.md`](ble-attack-surface.md): BLE attack surface taxonomy and security checklist.
 - [`device-fingerprinting.md`](device-fingerprinting.md): Passive device categorization, address privacy, and exposure scoring.
 - [`smp-security-audit.md`](smp-security-audit.md): Security Manager Protocol (SMP) probe and downgrade vulnerability testing.
+- [`blerp-attacks.md`](blerp-attacks.md): The BLERP attack engine (V1-V6, PI/CI/MitM) in depth.
 - [`hid-peripheral-injection.md`](hid-peripheral-injection.md): Native HOGP keyboard peripheral emulation and DuckyScript injection.
 - [`guided-audit-pipeline.md`](guided-audit-pipeline.md): Interactive console, guided audit pipeline, and Auto-Try batch scanner.
 - [`cli-args.md`](cli-args.md): Command-line argument parsing reference.
