@@ -56,6 +56,12 @@ struct blerp_attack_config {
     uint8_t downgraded_keysize;  // Weak key size forced into Pairing Req/Rsp (e.g. 7 bytes)
     int wait_conn_ms;            // Maximum wait time for connection (ms)
     int wait_react_ms;           // Maximum wait time for peer SMP reaction (ms)
+    bool allow_sc;                // Complete LE Secure Connections (smp_sc_engine) when the
+                                  // peer's Pairing Request has the SC bit set, instead of
+                                  // only ever downgrading to Legacy -- needed against a peer
+                                  // locked to Secure Connections Only (SCO), which refuses
+                                  // Legacy pairing outright. See smp_sc_engine.h's caveats
+                                  // before relying on this against real hardware.
 };
 
 // Comprehensive attack outcome and vulnerability assessment report.
@@ -72,10 +78,12 @@ struct blerp_attack_report {
     bool pres_received;          // Pairing Response received from peer (initiator mode)
     bool pairing_failed;         // Peer issued Pairing Failed (0x05)
     uint8_t fail_reason;         // Error code when pairing failed
-    bool phase2_completed;       // SMP Phase 2 (confirm/random/STK) finished successfully
+    bool phase2_completed;       // SMP Phase 2 (confirm/random/key) finished successfully
+    bool sc_used;                // phase2_completed via smp_sc_engine (LTK) rather than
+                                  // smp_legacy (STK) -- see cfg->allow_sc
     uint8_t negotiated_authreq;  // Final agreed AuthReq byte
     uint8_t negotiated_keysize;  // Final agreed encryption key size (7..16)
-    uint8_t stk[16];             // Derived Short Term Key (STK)
+    uint8_t stk[16];             // Derived session key: STK (Legacy) or LTK (SC, sc_used=true)
 };
 
 // Return the standard code string for a vulnerability (e.g. "V1", "V2").

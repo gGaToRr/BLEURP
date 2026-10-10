@@ -1157,6 +1157,8 @@ static int cmd_blerp(int argc, char **argv) {
                 "  -j <INDEX>           Secondary HCI adapter for MitM (default: 1)\n"
                 "  -e                   Reject encryption requests with LL_REJECT_IND (V5)\n"
                 "  -q                   Send unauthenticated Security Request (V1)\n"
+                "  -S                   Complete LE Secure Connections (pi only) instead of only\n"
+                "                       downgrading to Legacy -- needed against an SC-only peer\n"
                 "  -w <SECONDS>         Reaction timeout in seconds (default: 10)\n"
                 "  -c <SECONDS>         Connection timeout in seconds (default: 60)\n");
         return 2;
@@ -1191,7 +1193,7 @@ static int cmd_blerp(int argc, char **argv) {
 
     int opt;
     optind = 2; // skip "blerp" and mode
-    while ((opt = getopt(argc, argv, "s:n:a:k:r:t:i:j:eqw:c:h")) != -1) {
+    while ((opt = getopt(argc, argv, "s:n:a:k:r:t:i:j:eqSw:c:h")) != -1) {
         switch (opt) {
         case 's':
             if (parse_addr(optarg, cfg.spoof_addr) < 0) {
@@ -1244,6 +1246,9 @@ static int cmd_blerp(int argc, char **argv) {
             break;
         case 'q':
             cfg.send_secreq = true;
+            break;
+        case 'S':
+            cfg.allow_sc = true;
             break;
         case 'w': {
             long secs;

