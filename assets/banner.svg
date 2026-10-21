@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" width="100%" role="img" aria-label="BLEURP - Version 2 en travaux, pas encore fiable a 100 pourcent, contributeurs recherches">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#04060e"/>
+      <stop offset="0.55" stop-color="#0a1230"/>
+      <stop offset="1" stop-color="#06182a"/>
+    </linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.5" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#22d3ee" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#22d3ee" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="300" fill="url(#bg)"/>
+
+  <!-- Radar glow -->
+  <circle cx="155" cy="150" r="190" fill="url(#glow)"/>
+
+  <!-- Expanding BLE scan waves -->
+  <g fill="none" stroke="#22d3ee" stroke-width="3">
+    <circle cx="155" cy="150" r="24" opacity="0">
+      <animate attributeName="r" values="24;130" dur="3s" begin="0s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.85;0" dur="3s" begin="0s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="155" cy="150" r="24" opacity="0">
+      <animate attributeName="r" values="24;130" dur="3s" begin="1s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.85;0" dur="3s" begin="1s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="155" cy="150" r="24" opacity="0">
+      <animate attributeName="r" values="24;130" dur="3s" begin="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.85;0" dur="3s" begin="2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Bluetooth glyph (pulsing) -->
+  <g transform="translate(86,78) scale(6)" fill="#e0f2fe">
+    <path d="M17.71 7.71 12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/>
+    <animate attributeName="opacity" values="0.55;1;0.55" dur="2.4s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- Title -->
+  <text x="320" y="118" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="80" font-weight="800" fill="url(#title)" opacity="0" letter-spacing="2">
+    BLEURP
+    <animate attributeName="opacity" values="0;1" dur="0.9s" begin="0.1s" fill="freeze"/>
+  </text>
+  <text x="323" y="156" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#9fb3c8" opacity="0">
+    Bluetooth Low Energy Unauthenticated Reconnaissance &amp; Probing
+    <animate attributeName="opacity" values="0;1" dur="1s" begin="0.35s" fill="freeze"/>
+  </text>
+
+  <!-- Disclaimer bar (pulsing amber) -->
+  <g>
+    <rect x="320" y="188" width="848" height="86" rx="14" fill="#15132e"/>
+    <rect x="320" y="188" width="848" height="86" rx="14" fill="none" stroke="#fde047" stroke-width="2">
+      <animate attributeName="stroke-opacity" values="0.25;0.95;0.25" dur="2s" repeatCount="indefinite"/>
+    </rect>
+    <text x="344" y="226" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#fde047">
+      🚧 Version 2 en cours de réécriture — pas encore fiable à 100 %
+    </text>
+    <text x="344" y="256" font-family="Segoe UI, Ubuntu, Helvetica, Arial, sans-serif" font-size="19" font-weight="600" fill="#a5f3fc">
+      🤝 Contributeur·rices recherché·es — toute aide pour continuer est la bienvenue
+    </text>
+  </g>
+</svg>

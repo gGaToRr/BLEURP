@@ -1,159 +1,200 @@
+<div align="center">
+  <img src="assets/banner.svg" alt="BLEURP — Version 2 en travaux, contributeur·rices bienvenu·es" width="100%">
+</div>
+
 # BLEURP
 
-**Bluetooth Low Energy Unauthenticated Reconnaissance & Probing**
+**Bluetooth Low Energy Unauthenticated Reconnaissance &amp; Probing** — un toolkit C modulaire et sans dépendances lourdes, pour la reconnaissance et l'audit de sécurité Bluetooth Low Energy sous Linux.
 
-A modular, dependency-free BLE security scanner, auditor, and penetration testing toolkit for Linux.
+> ⚠️ **Usage autorisé uniquement.** N'utilisez BLEURP que sur des appareils et réseaux que vous possédez ou que vous êtes explicitement autorisé·e à tester. Interagir avec des appareils BLE tiers sans autorisation peut enfreindre la loi.
 
-> ⚠️ **Authorized use only.** Only use BLEURP on devices and networks you own or are explicitly authorized to test. Interacting with third-party BLE devices without authorization may violate local laws and regulations.
+> 🚧 **Version 2 en cours de réécriture — pas encore fiable à 100 %.** De larges pans du code bougent encore (refactor en modules `src/recon`, `src/gatt`, `src/smp`, `src/blerp`, …), des bugs et des changements d'API sont à prévoir. **Avis aux contributeur·rices : toute aide pour continuer le travail est chaleureusement acceptée** — voir [Contribution](#-contribution).
 
----
+## Table des matières
 
-## Features
+- [🪧 À propos](#-à-propos)
+- [📦 Prérequis](#-prérequis)
+- [🚀 Installation](#-installation)
+- [🛠️ Utilisation](#️-utilisation)
+- [🤝 Contribution](#-contribution)
+- [🏗️ Construit avec](#️-construit-avec)
+- [📚 Documentation](#-documentation)
+- [🏷️ Gestion des versions](#️-gestion-des-versions)
+- [📝 Licence](#-licence)
 
-- **Live BLE Reconnaissance (`scan`, `wizard`)**: Wifite-style live terminal scanner driven by Linux kernel mgmt discovery, sorting devices by RSSI with color-coded signal meters.
-- **Passive Device Fingerprinting**: Infers device category (*phone, computer, wearable, audio, input, health, sensor, network, peripheral*), identifies vendor OUI/company IDs, assesses MAC address privacy (*Public, Static, RPA, NRPA*), and computes a recon **Exposure Score (0–100)** without transmitting any RF frames.
-- **GATT Enumeration & Access Audit (`enum`, `audit`)**: Discovers services, characteristics, and descriptors over L2CAP ATT. Identifies readable characteristics exposed unauthenticated (`OPEN`) vs protected (`PROTECTED`).
-- **SMP Pairing Security Audit (`smp`)**: Probes target pairing negotiation behavior (AuthReq flags, IO Capabilities, minimum encryption key size) via native HCI User Channel or L2CAP SMP (CID 6) to detect security downgrades (inspired by the BLERP research).
-- **Native BLE Keyboard Peripheral Emulation (`keyboard`)**: Emulates a standalone BLE HOGP (HID over GATT Profile) keyboard peripheral directly via HCI User Channel, handling complete SMP Slave state machines with AES-128 cryptographic handshakes (`c1` confirm and `s1` STK generation) to pair with smartphones and hosts.
-- **Keystroke Injection (`hid`)**: Injects DuckyScript payloads into authorized targets using standard USB HID scancodes with cross-platform payload profiles (Linux, Windows, macOS, Android).
-- **Auto-Try Batch Recon**: Rapidly probes unauthenticated GATT characteristics across all discovered devices with aggressive, non-blocking connection timeouts.
-- **MAC Spoofer & Adapter Recovery**: Live LE Static Random address manipulation and system Bluetooth stack restoration scripts.
+## 🪧 À propos
 
----
+BLEURP est né d'un besoin d'**apprendre et d'auditer concrètement la sécurité du Bluetooth Low Energy** sans dépendre d'une lourde pile logicielle : il parle directement au noyau Linux (API *mgmt*, HCI User Channel, L2CAP/ATT, SMP) pour observer et sonder les appareils BLE.
 
-## Requirements
+Il couvre toute la chaîne : reconnaissance passive et fingerprinting, énumération GATT et audit des caractéristiques accessibles sans appairage, diagnostic de sécurité de l'appairage SMP, émulation d'un clavier BLE (HOGP) et injection de frappe, jusqu'à la reproduction des attaques **BLERP** (NDSS 2026 : impersonation de périphérique/central, MitM double canal). Le but est autant **pédagogique** (comprendre la surface d'attaque BLE) que pratique (auditer ses propres équipements).
 
-- Linux with BlueZ kernel stack (no heavy userland dependencies required).
-- Bluetooth adapter with BLE support (e.g. `hci0`).
-- `gcc`, `make`, and `libdbus-1-dev` (for D-Bus HID helper).
+## 📦 Prérequis
 
----
+- **Linux avec la pile BlueZ** (côté noyau) — [BlueZ](http://www.bluez.org/)
+- **Un adaptateur Bluetooth Low Energy** (ex. `hci0`)
+- **gcc** et **make** — [GCC](https://gcc.gnu.org/), [GNU Make](https://www.gnu.org/software/make/)
+- **libbluetooth-dev** — en-têtes BlueZ (`-lbluetooth`)
+- **libssl-dev** (libcrypto) — crypto AES-128 pour SMP/BLERP — [OpenSSL](https://www.openssl.org/)
+- **libdbus-1-dev** — helper HID via D-Bus — [D-Bus](https://www.freedesktop.org/wiki/Software/dbus/)
+- **Capacités réseau** : `CAP_NET_ADMIN` + sockets bruts (via `make setcap`) ou exécution en `sudo`
 
-## Quickstart
-
-### Build & Test
+Installation des dépendances sur Debian/Ubuntu :
 
 ```sh
-# Build binary
+sudo apt install build-essential libbluetooth-dev libssl-dev libdbus-1-dev pkg-config
+```
+
+## 🚀 Installation
+
+```sh
+# Cloner le dépôt et se placer sur la version 2
+git clone git@github.com:gGaToRr/BLEURP.git
+cd BLEURP
+git checkout v2/rewrite
+
+# Compiler
 make
 
-# Run the 18-suite test framework
+# Lancer la suite de tests
 make test
-```
 
-### Granting Network Capabilities (Recommended)
-
-Kernel mgmt discovery requires `CAP_NET_ADMIN` and raw socket capabilities:
-
-```sh
-# Grant capabilities to the bleurp binary once:
+# (Optionnel) Donner les capacités réseau au binaire pour un usage non-root
 make setcap
 
-# Run interactive console (unprivileged):
-./build/bleurp
+# Le binaire est dans ./build/bleurp
 ```
 
-*(Alternatively, run commands directly under `sudo ./build/bleurp ...`)*.
+## 🛠️ Utilisation
 
----
+> Sans `make setcap`, préfixez les commandes par `sudo`.
 
-## CLI Usage
-
-### Interactive Menu & Wizards
+### Menu interactif & assistant guidé
 
 ```sh
-./build/bleurp             # Interactive menu with ASCII Slant banner
-./build/bleurp wizard      # Guided all-in-one audit pipeline
+./build/bleurp            # Menu interactif (bannière ASCII)
+./build/bleurp wizard     # Pipeline d'audit guidé, tout-en-un
 ```
 
-### Scanning & Reconnaissance
+### Reconnaissance & scan
 
 ```sh
-./build/bleurp scan        # Live scan until Ctrl-C
-./build/bleurp scan -t 10  # Scan for 10 seconds
-./build/bleurp scan -v     # Verbose scan (displays vendor EIR & advertised services)
+./build/bleurp scan        # Scan en direct jusqu'à Ctrl-C
+./build/bleurp scan -t 10  # Scan pendant 10 secondes
+./build/bleurp scan -v     # Scan verbeux (EIR constructeur & services annoncés)
 ```
 
-### GATT Enumeration & Unauthenticated Access Audit
+### Énumération GATT & audit d'accès non authentifié
 
 ```sh
-# Dump GATT tree (services, characteristics, descriptors):
+# Dump de l'arbre GATT (services, caractéristiques, descripteurs)
 ./build/bleurp enum AA:BB:CC:DD:EE:FF -t random
 
-# Audit which characteristics are readable without pairing:
+# Quelles caractéristiques sont lisibles sans appairage
 ./build/bleurp audit AA:BB:CC:DD:EE:FF -t public
 
-# Direct handle read and write operations:
+# Lecture / écriture directe par handle
 ./build/bleurp read  AA:BB:CC:DD:EE:FF 0x0012 -t random
 ./build/bleurp write AA:BB:CC:DD:EE:FF 0x0012 01ff -t random
 ```
 
-### SMP Pairing Security Diagnostic
+### Diagnostic de sécurité de l'appairage (SMP / BLERP)
 
 ```sh
-# Run native HCI User Channel SMP downgrade probe (first pairing, no bond):
+# Sonde de downgrade SMP (première liaison, sans bond)
 ./build/bleurp smp AA:BB:CC:DD:EE:FF -i 0 -t random
 
-# Re-pairing check (BLERP) against a device already bonded with hci0.
-# Without an address, lists the bonded identity addresses (needs sudo):
-sudo ./build/bleurp repair
+# Test de ré-appairage (BLERP) contre un appareil déjà bondé avec hci0
+sudo ./build/bleurp repair                        # liste les identités bondées
 sudo ./build/bleurp repair AA:BB:CC:DD:EE:FF -i 0 -t public
 
-# Security Request test (BLERP, Apple finding): our adapter waits for the bonded
-# device to connect, sends one SMP Security Request, records its first reaction.
-# -r overrides ARSR (default: the estimated ARPK, the equality case of the paper).
-sudo ./build/bleurp secreq AA:BB:CC:DD:EE:FF -i 0 -c 60 -w 10
-
-# Native BLERP Attacks & Complete Audit Suite (NDSS 2026):
-# Peripheral Impersonation (PI): spoof peripheral, reject encryption (V5), downgrade security (V3/V4/V6)
-sudo ./build/bleurp blerp pi AA:BB:CC:DD:EE:FF -s 11:22:33:44:55:66 -n "Keyboard" -e -k 7
-
-# Central Impersonation (CI): spoof central, inject unauthenticated Pairing Request (V2/V4/V6)
-sudo ./build/bleurp blerp ci 11:22:33:44:55:66 -s AA:BB:CC:DD:EE:FF -k 7 -r 0x01
-
-# Double-channel MitM: PI against the victim Central (-i) + CI against the victim Peripheral (-j),
-# two independent PKs with the attacker on each side.
-sudo ./build/bleurp blerp mitm AA:BB:CC:DD:EE:FF -i 0 -j 1
-
-# Single-channel MitM: relays real SMP between the two victims, tampering only the
-# feature-negotiation PDUs (Pairing Request/Response) -- Fig. 6 of the paper.
-sudo ./build/bleurp blerp mitm-single AA:BB:CC:DD:EE:FF -i 0 -j 1
-
-# PI against a peer locked to Secure Connections Only: -S completes real SC Just Works
-# instead of only downgrading to Legacy (which such a peer would refuse outright).
-sudo ./build/bleurp blerp pi AA:BB:CC:DD:EE:FF -s 11:22:33:44:55:66 -S
-
-# Full automated evaluation of V1 to V6 against a target, plus the VII-A hardened
-# re-pairing rule table (Consistency Check / Anti-Downgrade / Encryption Failure
-# Termination) derived from the same run:
+# Attaques natives BLERP (NDSS 2026) : PI, CI, MitM double/simple canal, audit complet
+sudo ./build/bleurp blerp pi    AA:BB:CC:DD:EE:FF -s 11:22:33:44:55:66 -n "Keyboard" -e -k 7
+sudo ./build/bleurp blerp ci    11:22:33:44:55:66 -s AA:BB:CC:DD:EE:FF -k 7 -r 0x01
+sudo ./build/bleurp blerp mitm  AA:BB:CC:DD:EE:FF -i 0 -j 1
 sudo ./build/bleurp blerp audit AA:BB:CC:DD:EE:FF -t public -i 0
 ```
 
-### Native Keyboard Peripheral Mode & Keystroke Injection
+### Clavier BLE natif & injection de frappe
 
 ```sh
-# Start native BLE keyboard peripheral (advertises HOGP keyboard, handles SMP pairing):
+# Périphérique clavier BLE natif (annonce HOGP, gère l'appairage SMP)
 ./build/bleurp keyboard -i 0 -n "BLEURP Keyboard" -d src/hid/send_attack/payloads/demo-hello.txt
 
-# Inject DuckyScript payload via BlueZ D-Bus:
+# Injection d'un payload DuckyScript via D-Bus BlueZ
 ./build/bleurp hid -i hci0 -t AA:BB:CC:DD:EE:FF -f src/hid/send_attack/payloads/linux-terminal.txt
 ```
 
----
+## 🤝 Contribution
 
-## Documentation
+**Les contributions sont les bienvenues** — la v2 est un chantier ouvert, il y a de la place pour tout le monde (code, tests, docs, relecture). Flux proposé :
 
-Detailed architectural and technical guides are available in the [`docs/`](docs/) directory:
+```sh
+# 1. Forkez le dépôt sur GitHub, puis :
+git clone git@github.com:<votre-pseudo>/BLEURP.git
+cd BLEURP
+git checkout v2/rewrite
 
-- 📋 [**Architecture & Module Overview**](docs/architecture.md)
-- ⚡ [**Attaques & Audit BLERP (NDSS 2026, V1-V6, PI, CI, MitM)**](docs/blerp-attacks.md)
-- 🔍 [**Passive Device Fingerprinting & Exposure Scoring**](docs/device-fingerprinting.md)
-- 🔒 [**SMP Security Audit & Downgrade Probing**](docs/smp-security-audit.md)
-- ⌨️ [**HID Peripheral Emulation & Keystroke Injection**](docs/hid-peripheral-injection.md)
-- 🧭 [**Guided Audit Pipeline & Interactive Menu**](docs/guided-audit-pipeline.md)
-- 🛡️ [**GATT Access Audit**](docs/gatt-access-audit.md)
-- 🎯 [**BLE Attack Surface Reference**](docs/ble-attack-surface.md)
-- ⚙️ [**CLI Arguments Reference**](docs/cli-args.md)
-- 📡 [**Scanning Architecture**](docs/scan-overview.md)
-- 🔗 [**Phase 2 GATT Connection Design**](docs/phase2-gatt-connection.md)
-- 📚 [**Modules d'étude BLERP : ce qui est implémenté et pourquoi**](docs/blerp-study-modules.md)
+# 2. Créez une branche de travail
+git checkout -b feat/<ma-fonctionnalite>
+
+# 3. Développez, puis vérifiez que tout compile et que les tests passent
+make && make test
+
+# 4. Commitez (style conventionnel : feat:, fix:, refactor:, docs:)
+git commit -m "feat: <description concise>"
+
+# 5. Poussez et ouvrez une Pull Request vers la branche v2/rewrite
+git push origin feat/<ma-fonctionnalite>
+```
+
+Merci de garder le code sans warning (`-Wall -Wextra -Werror`) et d'accompagner toute nouvelle fonctionnalité d'un test dans `tests/`. Les discussions et signalements passent par les [Issues](https://github.com/gGaToRr/BLEURP/issues).
+
+## 🏗️ Construit avec
+
+### Langages &amp; bibliothèques
+
+- **[C (C11)](https://en.cppreference.com/w/c)** — cœur du projet, sans framework
+- **[BlueZ](http://www.bluez.org/) / HCI User Channel / L2CAP / API mgmt** — accès direct à la pile Bluetooth du noyau Linux
+- **[OpenSSL — libcrypto](https://www.openssl.org/)** — primitives AES-128 (`c1`/`s1`, SMP)
+- **[D-Bus — libdbus-1](https://www.freedesktop.org/wiki/Software/dbus/)** — helper d'injection HID via BlueZ
+
+### Outils
+
+- **[GCC](https://gcc.gnu.org/)** + **[GNU Make](https://www.gnu.org/software/make/)** — compilation (`make`, `make test`, `make setcap`, `make clean`)
+- **[pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/)** — résolution des flags D-Bus
+- **Framework de test maison** — un binaire par fichier `tests/test_*.c`
+
+### CI
+
+> _Aucune intégration continue n'est encore configurée._ **Bonne première contribution :** ajouter un workflow [GitHub Actions](https://docs.github.com/actions) lançant `make && make test` à chaque push / PR.
+
+### Déploiement
+
+Outil en ligne de commande : pas de déploiement serveur. La distribution se fait via les binaires compilés localement et la [page des Releases](https://github.com/gGaToRr/BLEURP/releases).
+
+## 📚 Documentation
+
+Guides techniques détaillés dans le répertoire [`docs/`](docs/) :
+
+- 📋 [Architecture &amp; vue d'ensemble des modules](docs/architecture.md)
+- ⚡ [Attaques &amp; audit BLERP (NDSS 2026, V1–V6, PI, CI, MitM)](docs/blerp-attacks.md)
+- 🔍 [Fingerprinting passif &amp; score d'exposition](docs/device-fingerprinting.md)
+- 🔒 [Audit SMP &amp; sondage de downgrade](docs/smp-security-audit.md)
+- ⌨️ [Émulation de périphérique HID &amp; injection de frappe](docs/hid-peripheral-injection.md)
+- 🧭 [Pipeline d'audit guidé &amp; menu interactif](docs/guided-audit-pipeline.md)
+- 🛡️ [Audit d'accès GATT](docs/gatt-access-audit.md)
+- 🎯 [Référence de la surface d'attaque BLE](docs/ble-attack-surface.md)
+- ⚙️ [Référence des arguments CLI](docs/cli-args.md)
+- 📡 [Architecture du scan](docs/scan-overview.md)
+- 🔗 [Conception de la connexion GATT (phase 2)](docs/phase2-gatt-connection.md)
+- 📚 [Modules d'étude BLERP : ce qui est implémenté et pourquoi](docs/blerp-study-modules.md)
+
+## 🏷️ Gestion des versions
+
+Afin de maintenir un cycle de publication clair et de favoriser la rétrocompatibilité, la dénomination des versions suit la spécification [Gestion sémantique de version (SemVer)](https://semver.org/lang/fr/).
+
+Les versions disponibles ainsi que les journaux de changements sont sur la [page des Releases](https://github.com/gGaToRr/BLEURP/releases).
+
+## 📝 Licence
+
+> ⚠️ **Aucun fichier `LICENSE` n'est encore défini.** En l'absence de licence, le code reste sous le copyright de son auteur et les droits de réutilisation/contribution ne sont pas formellement accordés. Une licence (p. ex. MIT ou GPLv3) **devrait être ajoutée** — c'est un point ouvert, idéal pour une première contribution ou une décision de l'auteur.
