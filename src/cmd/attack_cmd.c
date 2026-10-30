@@ -22,6 +22,7 @@
 #include "audit.h"
 #include "smp.h"
 #include "smp_native.h"
+#include "ctkd.h"
 #include "repair.h"
 #include "blerp_attack.h"
 #include "hardened_audit.h"
@@ -104,6 +105,11 @@ int attack_format_json(const struct attack_result *res, char *buf, size_t buf_si
         "    \"auth_req\": %u,\n"
         "    \"max_key_size\": %u\n"
         "  },\n"
+        "  \"ctkd\": {\n"
+        "    \"supported\": %s,\n"
+        "    \"verdict\": \"%s\",\n"
+        "    \"details\": \"%s\"\n"
+        "  },\n"
         "  \"blerp\": {\n"
         "    \"exploit_attempted\": %s,\n"
         "    \"exploit_success\": %s,\n"
@@ -132,6 +138,9 @@ int attack_format_json(const struct attack_result *res, char *buf, size_t buf_si
         res->smp_entropy_downgrade ? "true" : "false",
         (unsigned)res->smp_auth_req,
         (unsigned)res->smp_max_key_size,
+        res->ctkd_supported ? "true" : "false",
+        res->ctkd_verdict ? res->ctkd_verdict : "UNSUPPORTED",
+        res->ctkd_details,
         res->exploit_attempted ? "true" : "false",
         res->exploit_success ? "true" : "false",
         stk_hex,
@@ -183,6 +192,13 @@ void attack_print_result(const struct attack_result *res) {
                res->smp_entropy_downgrade ? UI_RED : UI_GREEN,
                res->smp_entropy_downgrade ? "OUI (56-bit cassable)" : "NON",
                (unsigned)res->smp_max_key_size, UI_RESET);
+        if (res->ctkd_supported) {
+            printf("    - Dérivation Cross-Transport (CTKD / BLURtooth) : %s%s%s (%s)\n",
+                   strcmp(res->ctkd_verdict, "PROTECTED") == 0 ? UI_GREEN : UI_RED,
+                   res->ctkd_verdict, UI_RESET, res->ctkd_details);
+        } else {
+            printf("    - Dérivation Cross-Transport (CTKD)             : Non supporté ou bit LinkKey retiré\n");
+        }
     } else {
         printf("    - %sAucune réponse SMP reçue lors de la sonde active.%s\n", UI_ORANGE, UI_RESET);
     }
@@ -282,6 +298,32 @@ int attack_run_target(const struct attack_options *opts,
         res->smp_max_key_size = smp_res.max_key_size;
         res->smp_just_works = ((smp_res.auth_req & 0x04) == 0 && (smp_res.auth_req & 0x08) == 0);
         res->smp_entropy_downgrade = (smp_res.max_key_size <= 7);
+
+        struct smp_pairing_params preq = {
+            .io_capability = 0x03,
+            .oob_data_flag = 0x00,
+            .auth_req = 0x01,
+            .max_key_size = 16,
+            .init_key_dist = 0x0f,
+            .resp_key_dist = 0x0f
+        };
+        struct smp_pairing_params prsp = {
+            .io_capability = smp_res.io_capability,
+            .oob_data_flag = smp_res.oob_data_flag,
+            .auth_req = smp_res.auth_req,
+            .max_key_size = smp_res.max_key_size,
+            .init_key_dist = smp_res.init_key_dist,
+            .resp_key_dist = smp_res.resp_key_dist
+        };
+        struct ctkd_report crep;
+        ctkd_classify_response(&preq, &prsp, NULL, &crep);
+        res->ctkd_supported = crep.supported;
+        res->ctkd_verdict = ctkd_verdict_label(crep.verdict);
+        snprintf(res->ctkd_details, sizeof(res->ctkd_details), "%s", crep.details);
+    } else {
+        res->ctkd_supported = false;
+        res->ctkd_verdict = "UNSUPPORTED";
+        snprintf(res->ctkd_details, sizeof(res->ctkd_details), "Sonde SMP sans réponse");
     }
 
     // Phase 4 : BLERP Exploit

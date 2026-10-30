@@ -535,6 +535,17 @@ void smp_native_print_result(const struct smp_probe_result *res, const char *tar
            res->max_key_size, res->max_key_size * 8, UI_RESET);
     printf("  Dist. Clés (Init/Rsp): 0x%02x / 0x%02x\n", res->init_key_dist, res->resp_key_dist);
 
+    bool ctkd_rsp = (res->resp_key_dist & 0x08) != 0; // SMP_KEYDIST_LINKKEY
+    if (ctkd_rsp) {
+        if (!mitm || !sc || res->max_key_size < 16) {
+            printf("  %s[!] CTKD Actif & Vulnérable : dérivation BR/EDR LinkKey permise sur canal affaibli (BLURtooth / CVE-2020-15802)%s\n",
+                   UI_RED, UI_RESET);
+        } else {
+            printf("  %s[+] CTKD Actif (Protégé) : dérivation BR/EDR LinkKey restreinte à Secure Connections%s\n",
+                   UI_GREEN, UI_RESET);
+        }
+    }
+
     if (!mitm && !sc) {
         printf("  %s[i] La cible accepte un appairage initial sans MITM ni SC. Ce n'est pas la faille BLERP à elle seule :\n"
                "      le papier cible le re-pairing d'un appareil déjà appairé (voir 'bleurp repair').%s\n",

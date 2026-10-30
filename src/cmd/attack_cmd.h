@@ -39,6 +39,11 @@ struct attack_result {
     uint8_t smp_auth_req;
     uint8_t smp_max_key_size;
 
+    // Cross-Transport Key Derivation (CTKD)
+    bool ctkd_supported;
+    const char *ctkd_verdict;
+    char ctkd_details[128];
+
     // BLERP Re-Pairing exploit
     bool exploit_attempted;
     bool exploit_success;

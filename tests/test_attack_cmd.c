@@ -35,6 +35,10 @@ static void test_json_formatting(void) {
     res.smp_auth_req = 0x01;
     res.smp_max_key_size = 7;
 
+    res.ctkd_supported = true;
+    res.ctkd_verdict = "VULN_UNAUTH";
+    snprintf(res.ctkd_details, sizeof(res.ctkd_details), "Test CTKD vulnerability");
+
     res.exploit_attempted = true;
     res.exploit_success = true;
     res.stk_len = 7;
@@ -55,6 +59,7 @@ static void test_json_formatting(void) {
     CHECK(strstr(buf, "\"open_writes\": 1") != NULL);
     CHECK(strstr(buf, "\"just_works_accepted\": true") != NULL);
     CHECK(strstr(buf, "\"entropy_downgrade\": true") != NULL);
+    CHECK(strstr(buf, "\"verdict\": \"VULN_UNAUTH\"") != NULL);
     CHECK(strstr(buf, "\"exploit_success\": true") != NULL);
     CHECK(strstr(buf, "\"stk\": \"01020304050607\"") != NULL);
     CHECK(strstr(buf, "\"success\": true") != NULL);
