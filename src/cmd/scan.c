@@ -9,6 +9,7 @@
 // ========================================
 
 #include "scan.h"
+#include "export.h"
 #include "ad_parse.h"
 #include "cli.h"
 #include "dev_table.h"
@@ -28,6 +29,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 
 // How often to re-arm discovery, to keep reports flowing and refresh the
 // view (wifite keeps a continuous scan going and redraws steadily).
@@ -300,20 +302,32 @@ int cmd_scan(int argc, char **argv) {
         cli_print_usage(argv[0], stderr);
         return 2;
     }
-    // --output/--json have no engine behind them yet (no JSON/file writer
-    // exists in this codebase): fail clearly instead of silently accepting
-    // a flag that would then do nothing.
-    if (opts.json || opts.output[0] != '\0') {
-        fprintf(stderr, "scan: --json/--output are not implemented yet (stdout live view only)\n");
-        return 2;
-    }
-
     struct dev_table table;
     if (dev_table_init(&table) < 0) { perror("dev_table_init"); return 1; }
     int rc = opts.passive
         ? run_scan_passive(opts.iface, opts.duration, opts.verbose, &table)
         : run_scan(opts.iface, opts.duration, opts.verbose, &table);
-    printf("\nStopped. %zu device(s) found.\n", dev_table_count(&table));
+
+    if (opts.output[0] != '\0') {
+        FILE *f = fopen(opts.output, "w");
+        if (!f) {
+            fprintf(stderr, "scan: could not open output file '%s': %s\n", opts.output, strerror(errno));
+        } else {
+            size_t olen = strlen(opts.output);
+            if (olen > 4 && strcasecmp(opts.output + olen - 4, ".csv") == 0) {
+                export_csv(&table, f);
+            } else {
+                export_json(&table, f);
+            }
+            fclose(f);
+            printf("\nResults exported to %s (%zu devices)\n", opts.output, dev_table_count(&table));
+        }
+    } else if (opts.json) {
+        export_json(&table, stdout);
+    } else {
+        printf("\nStopped. %zu device(s) found.\n", dev_table_count(&table));
+    }
+
     dev_table_free(&table);
     return rc < 0 ? 1 : 0;
 }
