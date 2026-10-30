@@ -21,6 +21,7 @@
 #include "cmd/repair_cmd.h"
 #include "cmd/secreq_cmd.h"
 #include "cmd/blerp_cmd.h"
+#include "cmd/attack_cmd.h"
 #include "hid_cmd.h"
 #include "menu/menu.h"
 
@@ -30,6 +31,7 @@ static void usage(const char *prog) {
             "Usage:\n"
             "  %s                                      interactive menu (default)\n"
             "  %s wizard                               guided all-in-one audit pipeline\n"
+            "  %s attack <ADDR> [options]              automated end-to-end BLE attack chain\n"
             "  %s finale [--all-test]                  scan 15s + test connexion re-pairing (cible unique ou All-Test) + bannière SUCCESS\n"
             "  %s scan  [-i index] [-t seconds] [-v]   live BLE scan\n"
             "  %s autotry [-i index] [-t s] [-T ms]    scan, then connect + audit every device found (no prompts)\n"
@@ -47,13 +49,14 @@ static void usage(const char *prog) {
             "  -t seconds  scan duration; 0 = until Ctrl-C (default 0)\n"
             "  -v          verbose scan (per-device vendor/services details)\n"
             "Only use on devices you own or are authorized to test.\n",
-            prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog);
+            prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog, prog);
 }
 int main(int argc, char **argv) {
     if (argc >= 2) {
         if (strcmp(argv[1], "wizard") == 0 ||
             strcmp(argv[1], "suite") == 0 ||
             strcmp(argv[1], "pipeline") == 0)   { menu_guided_audit_wizard(); return 0; }
+        if (strcmp(argv[1], "attack") == 0)     return cmd_attack(argc - 1, argv + 1);
         if (strcmp(argv[1], "finale") == 0) {
             int all = -1;
             if (argc >= 3 && (strcmp(argv[2], "--all-test") == 0 ||

