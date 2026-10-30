@@ -23,6 +23,7 @@
 #include "ui.h"
 #include "../menu/menu.h"
 
+#include <errno.h>
 #include <getopt.h>
 #include <limits.h>
 #include <stdio.h>
@@ -198,6 +199,12 @@ int cmd_blerp(int argc, char **argv) {
     switch (type) {
     case BLERP_ATTACK_PI:
         rc = blerp_run_pi(&cfg, &rep);
+        if (rc != 0) {
+            fprintf(stderr, "  [-] Could not run the attack on hci%d: %s\n",
+                    cfg.dev_id, strerror(errno));
+            fprintf(stderr, "      (adapter missing/down, or still owned by bluetoothd)\n");
+            return 1;
+        }
         blerp_classify_vulnerabilities(pbond, &rep, &rep);
         blerp_print_report(&cfg, pbond, &rep);
         if (rep.phase2_completed || rep.verdicts[BLERP_V5_SESSION_BREAK] == BLERP_VERDICT_YES) success = true;
@@ -208,6 +215,12 @@ int cmd_blerp(int argc, char **argv) {
             return 2;
         }
         rc = blerp_run_ci(&cfg, &rep);
+        if (rc != 0) {
+            fprintf(stderr, "  [-] Could not run the attack on hci%d: %s\n",
+                    cfg.dev_id, strerror(errno));
+            fprintf(stderr, "      (adapter missing/down, or still owned by bluetoothd)\n");
+            return 1;
+        }
         blerp_classify_vulnerabilities(pbond, &rep, &rep);
         blerp_print_report(&cfg, pbond, &rep);
         if (rep.phase2_completed || rep.verdicts[BLERP_V2_UNAUTH_REPAIR] == BLERP_VERDICT_YES) success = true;
@@ -235,6 +248,12 @@ int cmd_blerp(int argc, char **argv) {
         } else {
             rc = blerp_run_mitm(&cfg, &rep);
         }
+        if (rc != 0) {
+            fprintf(stderr, "  [-] Could not run the MitM attack on hci%d / hci%d: %s\n",
+                    cfg.dev_id, cfg.dev_id_sec, strerror(errno));
+            fprintf(stderr, "      (adapter missing/down, or still owned by bluetoothd)\n");
+            return 1;
+        }
         break;
     case BLERP_ATTACK_AUDIT:
         if (target_str[0] == '\0') {
@@ -242,6 +261,12 @@ int cmd_blerp(int argc, char **argv) {
             return 2;
         }
         rc = blerp_run_audit(&cfg, pbond, &rep);
+        if (rc != 0) {
+            fprintf(stderr, "  [-] Could not run the attack on hci%d: %s\n",
+                    cfg.dev_id, strerror(errno));
+            fprintf(stderr, "      (adapter missing/down, or still owned by bluetoothd)\n");
+            return 1;
+        }
         blerp_print_report(&cfg, pbond, &rep);
         {
             struct hardened_audit_report hrep;

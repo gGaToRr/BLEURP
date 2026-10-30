@@ -71,18 +71,6 @@
 
 #define HID_PAYLOAD_MAX 32
 
-
-
-
-// Path to the bundled DuckyScript payloads, listed by the HID wizard below.
-// Baked in by the Makefile as an absolute path; the relative fallback keeps
-// this file buildable on its own.
-#ifndef BLEURP_PAYLOADS_DIR
-#define BLEURP_PAYLOADS_DIR "src/hid/send_attack/payloads"
-#endif
-
-#define HID_PAYLOAD_MAX 32
-
 // Read a payload file's first "REM ..." or "# ..." comment line as its
 // short description (as written by every file under payloads/), or leave
 // `out` empty if there is none.
@@ -1129,18 +1117,20 @@ static void eval_target_test(int dev_id, enum blerp_attack_type type,
     int rc = 0;
     if (type == BLERP_ATTACK_PI) {
         rc = blerp_run_pi(&cfg, &rep);
-        blerp_classify_vulnerabilities(pbond, &rep, &rep);
     } else if (type == BLERP_ATTACK_CI) {
         rc = blerp_run_ci(&cfg, &rep);
-        blerp_classify_vulnerabilities(pbond, &rep, &rep);
     } else {
         rc = blerp_run_audit(&cfg, pbond, &rep);
     }
 
     if (rc < 0) {
-        fprintf(stderr, "  %s[-] Échec de la sonde BLERP sur %s (vérifier droits root/CAP_NET_ADMIN).%s\n",
+        fprintf(stderr, "  %s[-] Échec de la sonde BLERP sur %s (vérifier adaptateur / droits root / CAP_NET_ADMIN).%s\n",
                 UI_RED, as ? as : "", UI_RESET);
         return;
+    }
+
+    if (type == BLERP_ATTACK_PI || type == BLERP_ATTACK_CI) {
+        blerp_classify_vulnerabilities(pbond, &rep, &rep);
     }
 
     if (type == BLERP_ATTACK_AUDIT) {
