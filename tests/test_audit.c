@@ -41,6 +41,15 @@ static void test_other(void) {
     CHECK(audit_classify_read(false, 0x00) == AUDIT_OTHER); // no ATT code (e.g. timeout)
 }
 
+static void test_write(void) {
+    CHECK(audit_classify_write(true, 0x00) == AUDIT_OPEN);
+    CHECK(audit_classify_write(true, 0x03) == AUDIT_OPEN);
+    CHECK(audit_classify_write(false, ATT_ERR_INSUFFICIENT_AUTHENTICATION) == AUDIT_PROTECTED);
+    CHECK(audit_classify_write(false, ATT_ERR_INSUFFICIENT_ENCRYPTION) == AUDIT_PROTECTED);
+    CHECK(audit_classify_write(false, ATT_ERR_WRITE_NOT_PERMITTED) == AUDIT_DENIED);
+    CHECK(audit_classify_write(false, 0x0a) == AUDIT_OTHER);
+}
+
 // Labels are short, stable, upper-case tokens for the report column.
 static void test_labels(void) {
     CHECK(strcmp(audit_verdict_label(AUDIT_OPEN), "OPEN") == 0);
@@ -56,6 +65,7 @@ int main(void) {
     test_protected();
     test_denied();
     test_other();
+    test_write();
     test_labels();
     return TEST_REPORT();
 }

@@ -16,6 +16,7 @@
 
 // ATT error codes relevant to an access audit (Bluetooth Core, Vol 3 Part F).
 #define ATT_ERR_READ_NOT_PERMITTED           0x02
+#define ATT_ERR_WRITE_NOT_PERMITTED          0x03
 #define ATT_ERR_INSUFFICIENT_AUTHENTICATION  0x05
 #define ATT_ERR_INSUFFICIENT_AUTHORIZATION   0x08
 #define ATT_ERR_INSUFFICIENT_ENC_KEY_SIZE    0x0c
@@ -33,6 +34,10 @@ typedef enum {
 // the value; otherwise `att_error` is the ATT error code (0 if none, e.g. a
 // timeout). See the ATT_ERR_* codes above.
 audit_verdict_t audit_classify_read(bool read_ok, uint8_t att_error);
+
+// Map a write outcome to a verdict. `write_ok` is true when gatt_write returned
+// success; otherwise `att_error` is the ATT error code (0 if none).
+audit_verdict_t audit_classify_write(bool write_ok, uint8_t att_error);
 
 // Short, stable upper-case label for the report ("OPEN", "PROTECTED",
 // "DENIED", "OTHER"). Returns a static string; never NULL.
